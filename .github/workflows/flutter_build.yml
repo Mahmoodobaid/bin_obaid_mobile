@@ -1,4 +1,3 @@
-cat > .github/workflows/flutter_build.yml << 'EOF'
 name: Flutter Build Check
 
 on:
@@ -12,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -28,4 +27,3 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --debug
-EOF
