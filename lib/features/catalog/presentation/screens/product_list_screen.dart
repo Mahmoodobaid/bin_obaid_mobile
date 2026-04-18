@@ -5,7 +5,7 @@ import '../providers/product_provider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/shimmer_product_card.dart';
 import '../../../../core/widgets/empty_state.dart';
-import '../../../../services/api_service.dart';
+import '../../../../services/search_service.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -33,58 +33,17 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     }
   }
 
-  Future<void> _diagnoseApi() async {
-    final api = ref.read(apiServiceProvider);
-    try {
-      final products = await api.fetchProducts(page: 1, pageSize: 5);
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('تشخيص API'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('عدد المنتجات المستلمة: ${products.length}'),
-                const SizedBox(height: 12),
-                if (products.isNotEmpty)
-                  ...products.map((p) => Text('• ${p.sku}: ${p.name}')).toList()
-                else
-                  const Text('لم يتم استلام أي منتجات.'),
-              ],
-            ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
-        ),
-      );
-    } catch (e) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('خطأ في API'),
-          content: Text('$e'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productProvider);
     final categoryState = ref.watch(categoryProvider);
     final products = state.filteredProducts;
+    final isOffline = state.isOfflineMode;
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
         title: const Text('كتالوج المنتجات'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: _diagnoseApi,
-            tooltip: 'تشخيص API',
-          ),
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined),
             onPressed: () => context.push('/cart'),
@@ -93,6 +52,17 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       ),
       body: Column(
         children: [
+          if (isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              color: Colors.orange.shade800,
+              child: const Text(
+                '⚠️ وضع الأوفلاين - البحث في البيانات المحلية',
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -106,12 +76,12 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          ref.read(productProvider.notifier).setSearchQuery('');
+                          ref.read(productProvider.notifier).smartSearch('');
                         },
                       )
                     : null,
               ),
-              onChanged: (value) => ref.read(productProvider.notifier).setSearchQuery(value),
+              onChanged: (value) => ref.read(productProvider.notifier).smartSearch(value),
             ),
           ),
           if (!categoryState.isLoading)
@@ -159,10 +129,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                           children: [
                             const Icon(Icons.error_outline, size: 64, color: Colors.red),
                             const SizedBox(height: 16),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(state.error!, textAlign: TextAlign.center),
-                            ),
+                            Text(state.error!, textAlign: TextAlign.center),
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: () => ref.read(productProvider.notifier).refresh(),
@@ -172,22 +139,13 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         ),
                       )
                     : products.isEmpty
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              EmptyState(
-                                icon: Icons.inventory_2_outlined,
-                                message: state.products.isEmpty ? 'لا توجد منتجات متاحة' : 'عدد المنتجات: ${state.products.length}',
-                                actionLabel: 'تحديث',
-                                onAction: () => ref.read(productProvider.notifier).refresh(),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _diagnoseApi,
-                                icon: const Icon(Icons.bug_report),
-                                label: const Text('تشخيص API'),
-                              ),
-                            ],
+                        ? EmptyState(
+                            icon: Icons.inventory_2_outlined,
+                            message: state.searchQuery != null && state.searchQuery!.isNotEmpty
+                                ? 'لا توجد منتجات تطابق البحث'
+                                : 'لا توجد منتجات متاحة',
+                            actionLabel: 'تحديث',
+                            onAction: () => ref.read(productProvider.notifier).refresh(),
                           )
                         : RefreshIndicator(
                             onRefresh: () => ref.read(productProvider.notifier).refresh(),
@@ -195,7 +153,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                               controller: _scrollController,
                               padding: const EdgeInsets.all(12),
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75),
-                              itemCount: products.length + (state.hasMore ? 1 : 0),
+                              itemCount: products.length + (state.hasMore && state.searchQuery == null ? 1 : 0),
                               itemBuilder: (context, index) {
                                 if (index == products.length) {
                                   return const ShimmerProductCard();

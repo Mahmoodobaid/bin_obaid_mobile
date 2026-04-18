@@ -2,8 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../models/product_model.dart';
 import '../../../../services/api_service.dart';
 import '../../../../services/local_storage_service.dart';
+import '../../../../services/search_service.dart';
+
+final searchServiceProvider = Provider<SearchService>((ref) {
+  return SearchService(ref.read(apiServiceProvider));
+});
 
 final productProvider = StateNotifierProvider<ProductNotifier, ProductState>((ref) => ProductNotifier(ref));
+
 final categoryProvider = StateNotifierProvider<CategoryNotifier, CategoryState>((ref) => CategoryNotifier(ref));
 
 class ProductState {
@@ -17,6 +23,7 @@ class ProductState {
   final bool inStockOnly;
   final String? error;
   final DateTime? lastSyncTime;
+  final bool isOfflineMode;
 
   ProductState({
     this.products = const [],
@@ -29,6 +36,7 @@ class ProductState {
     this.inStockOnly = false,
     this.error,
     this.lastSyncTime,
+    this.isOfflineMode = false,
   });
 
   ProductState copyWith({
@@ -42,6 +50,7 @@ class ProductState {
     bool? inStockOnly,
     String? error,
     DateTime? lastSyncTime,
+    bool? isOfflineMode,
   }) {
     return ProductState(
       products: products ?? this.products,
@@ -54,6 +63,7 @@ class ProductState {
       inStockOnly: inStockOnly ?? this.inStockOnly,
       error: error,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
+      isOfflineMode: isOfflineMode ?? this.isOfflineMode,
     );
   }
 
@@ -80,7 +90,11 @@ class ProductNotifier extends StateNotifier<ProductState> {
 
   Future<void> _init() async {
     final lastSync = await LocalStorageService.getLastSyncTime();
-    state = state.copyWith(lastSyncTime: lastSync);
+    final searchService = ref.read(searchServiceProvider);
+    state = state.copyWith(
+      lastSyncTime: lastSync,
+      isOfflineMode: searchService.isOffline,
+    );
   }
 
   Future<void> loadProducts({bool refresh = false}) async {
@@ -100,14 +114,13 @@ class ProductNotifier extends StateNotifier<ProductState> {
         category: state.selectedCategory,
       );
 
-      final allProducts = refresh ? newProducts : [...state.products, ...newProducts]; 
-    print('✅ عدد المنتجات المحملة: ${allProducts.length}');
-      print('✅ عدد المنتجات المستلمة: ${newProducts.length}');
+      final allProducts = refresh ? newProducts : [...state.products, ...newProducts];
 
       if (refresh && newPage == 1) {
         await LocalStorageService.saveProducts(allProducts);
       }
 
+      final searchService = ref.read(searchServiceProvider);
       state = state.copyWith(
         products: allProducts,
         isLoading: false,
@@ -115,28 +128,50 @@ class ProductNotifier extends StateNotifier<ProductState> {
         currentPage: newPage,
         lastSyncTime: refresh ? DateTime.now() : state.lastSyncTime,
         error: null,
+        isOfflineMode: searchService.isOffline,
       );
     } catch (e) {
       final localProducts = await LocalStorageService.getProducts();
+      final searchService = ref.read(searchServiceProvider);
       if (localProducts.isNotEmpty) {
         state = state.copyWith(
           products: localProducts,
           isLoading: false,
           hasMore: false,
           error: null,
+          isOfflineMode: true,
         );
       } else {
         state = state.copyWith(
           isLoading: false,
           error: 'فشل الاتصال بالسيرفر: $e',
+          isOfflineMode: searchService.isOffline,
         );
       }
     }
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query.isEmpty ? null : query, hasMore: true, currentPage: 0);
-    loadProducts(refresh: true);
+  /// بحث ذكي باستخدام SearchService
+  Future<void> smartSearch(String query) async {
+    if (query.trim().length < 2) {
+      // إذا كان البحث فارغاً، نعيد تحميل المنتجات العادية
+      state = state.copyWith(searchQuery: null);
+      loadProducts(refresh: true);
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, searchQuery: query);
+    final searchService = ref.read(searchServiceProvider);
+
+    // استخدام debounce من خلال searchService
+    searchService.debounceSearch(query, (results) {
+      state = state.copyWith(
+        products: results,
+        isLoading: false,
+        hasMore: false,
+        isOfflineMode: searchService.isOffline,
+      );
+    }, limit: _pageSize);
   }
 
   void setCategory(String? category) {
@@ -146,7 +181,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
 
   void setSortBy(String sortBy) => state = state.copyWith(sortBy: sortBy);
   void setInStockOnly(bool value) => state = state.copyWith(inStockOnly: value);
-  
+
   Future<void> refresh() async {
     state = state.copyWith(hasMore: true, currentPage: 0, error: null);
     await loadProducts(refresh: true);
