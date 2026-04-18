@@ -17,6 +17,17 @@ import 'features/admin/import_export/presentation/screens/import_products_screen
 import 'features/admin/manage_products/presentation/screens/manage_products_screen.dart';
 import 'features/admin/export/presentation/screens/export_products_screen.dart';
 import 'features/admin/connection_settings/presentation/screens/connection_settings_screen.dart';
+import 'features/admin/customers/presentation/screens/customers_screen.dart';
+import 'features/admin/orders/presentation/screens/orders_screen.dart';
+import 'features/admin/invoices/presentation/screens/invoices_list_screen.dart';
+import 'features/admin/notifications/presentation/screens/notification_manager_screen.dart';
+import 'features/admin/announcements/presentation/screens/announcements_screen.dart';
+import 'features/admin/reports/presentation/screens/reports_screen.dart';
+import 'features/admin/analytics/presentation/screens/advanced_analytics_screen.dart';
+import 'features/admin/roles/presentation/screens/roles_permissions_screen.dart';
+import 'features/admin/preferences/presentation/screens/system_preferences_screen.dart';
+import 'features/admin/backup/presentation/screens/backup_screen.dart';
+import 'features/admin/activity_log/presentation/screens/activity_log_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -48,22 +59,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         GoRoute(path: 'manage-products', builder: (_, __) => const ManageProductsScreen()),
         GoRoute(path: 'export', builder: (_, __) => const ExportProductsScreen()),
         GoRoute(path: 'connection-settings', builder: (_, __) => const ConnectionSettingsScreen()),
+        GoRoute(path: 'customers', builder: (_, __) => const CustomersScreen()),
+        GoRoute(path: 'orders', builder: (_, __) => const OrdersScreen()),
+        GoRoute(path: 'invoices', builder: (_, __) => const InvoicesListScreen()),
+        GoRoute(path: 'notifications', builder: (_, __) => const NotificationManagerScreen()),
+        GoRoute(path: 'announcements', builder: (_, __) => const AnnouncementsScreen()),
+        GoRoute(path: 'reports', builder: (_, __) => const ReportsScreen()),
+        GoRoute(path: 'advanced-analytics', builder: (_, __) => const AdvancedAnalyticsScreen()),
+        GoRoute(path: 'roles-permissions', builder: (_, __) => const RolesPermissionsScreen()),
+        GoRoute(path: 'system-preferences', builder: (_, __) => const SystemPreferencesScreen()),
+        GoRoute(path: 'backup', builder: (_, __) => const BackupScreen()),
+        GoRoute(path: 'activity-log', builder: (_, __) => const ActivityLogScreen()),
       ]),
       GoRoute(path: '/import', builder: (_, __) => const ImportProductsScreen()),
       GoRoute(path: '/delivery', builder: (_, __) => const DeliveryScreen()),
     ],
   );
 });
-
-// المسارات الجديدة (تضاف تلقائياً)
-GoRoute(path: '/admin/customers', builder: (_, __) => const CustomersScreen()),
-GoRoute(path: '/admin/orders', builder: (_, __) => const OrdersScreen()),
-GoRoute(path: '/admin/invoices', builder: (_, __) => const InvoicesListScreen()),
-GoRoute(path: '/admin/notifications', builder: (_, __) => const NotificationManagerScreen()),
-GoRoute(path: '/admin/announcements', builder: (_, __) => const AnnouncementsScreen()),
-GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
-GoRoute(path: '/admin/advanced-analytics', builder: (_, __) => const AdvancedAnalyticsScreen()),
-GoRoute(path: '/admin/roles-permissions', builder: (_, __) => const RolesPermissionsScreen()),
-GoRoute(path: '/admin/system-preferences', builder: (_, __) => const SystemPreferencesScreen()),
-GoRoute(path: '/admin/backup', builder: (_, __) => const BackupScreen()),
-GoRoute(path: '/admin/activity-log', builder: (_, __) => const ActivityLogScreen()),
