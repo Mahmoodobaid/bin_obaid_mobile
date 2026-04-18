@@ -57,4 +57,5 @@ flutter:
   
   # تأكد من وجود المجلد في مشروعك أو قم بإنشائه
   assets:
+    - assets/images/default.png
     - assets/images/
