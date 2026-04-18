@@ -35,7 +35,9 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('custom_supabase_url', _urlController.text.trim());
     await prefs.setString('custom_supabase_key', _keyController.text.trim());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الإعدادات. أعد تشغيل التطبيق لتفعيلها.')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ تم حفظ الإعدادات. أعد تشغيل التطبيق لتفعيلها.')));
+    }
   }
 
   Future<void> _testConnection() async {
@@ -86,8 +88,8 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
                 const Text('رابط Supabase', style: TextStyle(fontWeight: FontWeight.bold)),
                 TextField(controller: _urlController, decoration: const InputDecoration(hintText: 'https://xxxx.supabase.co')),
                 const SizedBox(height: 16),
-                const Text('مفتاح API (Anon Key)', style: TextStyle(fontWeight: FontWeight.bold)),
-                TextField(controller: _keyController, maxLines: 3, decoration: const InputDecoration(hintText: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')),
+                const Text('مفتاح API (Anon / Publishable)', style: TextStyle(fontWeight: FontWeight.bold)),
+                TextField(controller: _keyController, maxLines: 3, decoration: const InputDecoration(hintText: 'sb_publishable_... أو eyJhbGciOiJIUzI1NiIs...')),
                 const SizedBox(height: 24),
                 Row(children: [
                   Expanded(child: ElevatedButton.icon(onPressed: _testConnection, icon: const Icon(Icons.wifi), label: const Text('اختبار الاتصال'))),
