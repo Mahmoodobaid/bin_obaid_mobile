@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -25,17 +25,47 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Repair and Create Missing Android Files
-        run: flutter create --platforms=android .
-
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Repair Android Structure (v2 Embedding)
+        run: |
+          rm -rf android
+          flutter create --platforms=android --org com.binobaid .
+          
+      - name: Inject Permissions & Config
+        run: |
+          cat > android/app/src/main/AndroidManifest.xml << 'INNER_EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.binobaid.trading">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <application
+                  android:label="محلات بن عبيد"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          INNER_EOF
 
       - name: Build Release APK
-        run: flutter build apk --release
+        run: |
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bin-Obaid-App
+          name: Bin-Obaid-App-Final
           path: build/app/outputs/flutter-apk/app-release.apk
