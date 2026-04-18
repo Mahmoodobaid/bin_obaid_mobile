@@ -22,7 +22,13 @@ jobs:
         with:
           flutter-version: '3.22.0'
           channel: 'stable'
-      
+
+      # هذه الخطوة ستقوم بحذف أي إعدادات قديمة وبناء بيئة أندرويد حديثة
+      - name: Recreate Android Project
+        run: |
+          rm -rf android
+          flutter create . --platforms android --force
+
       - name: Get dependencies
         run: flutter pub get
       
