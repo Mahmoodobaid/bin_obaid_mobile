@@ -1,6 +1,159 @@
-import 'package:flutter/material.dart'; import 'package:flutter_riverpod/flutter_riverpod.dart'; import 'package:go_router/go_router.dart'; import '../providers/invoice_provider.dart'; import '../../../catalog/presentation/providers/product_provider.dart'; import '../../../../services/api_service.dart'; import '../../../../models/product_model.dart';
-class InvoiceScreen extends ConsumerStatefulWidget { const InvoiceScreen({super.key}); @override ConsumerState<InvoiceScreen> createState() => _InvoiceScreenState(); }
-class _InvoiceScreenState extends ConsumerState<InvoiceScreen> { final _name = TextEditingController(), _phone = TextEditingController(), _discount = TextEditingController(); final _searchQuery = StateProvider<String>((ref)=>''); @override Widget build(BuildContext context) { final inv = ref.watch(invoiceProvider); return Directionality(textDirection: TextDirection.rtl, child: Scaffold(appBar: AppBar(title: const Text('فاتورة جديدة'), actions: [IconButton(icon: const Icon(Icons.save), onPressed: _save)]), body: Padding(padding: const EdgeInsets.all(16), child: Column(children: [ Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [ TextField(controller: _name, decoration: const InputDecoration(labelText:'اسم العميل')), TextField(controller: _phone, decoration: const InputDecoration(labelText:'رقم الهاتف'), keyboardType: TextInputType.phone) ]))), const SizedBox(height:16), Expanded(child: Card(child: Column(children: [ Padding(padding: const EdgeInsets.all(8), child: Row(children: const [ Expanded(flex:3, child: Text('المنتج', style: TextStyle(fontWeight:FontWeight.bold))), Expanded(child: Text('الكمية')), Expanded(child: Text('السعر')), SizedBox(width:40) ])), const Divider(), Expanded(child: ListView.builder(itemCount: inv.items.length, itemBuilder: (c,i){ final it = inv.items[i]; return ListTile(title: Text(it.product.name), subtitle: Text('${it.product.unitPrice} ريال'), trailing: Row(mainAxisSize: MainAxisSize.min, children: [ IconButton(icon: const Icon(Icons.remove), onPressed: ()=>ref.read(invoiceProvider.notifier).decrementQuantity(i)), Text('${it.quantity}'), IconButton(icon: const Icon(Icons.add), onPressed: ()=>ref.read(invoiceProvider.notifier).incrementQuantity(i)), IconButton(icon: const Icon(Icons.delete), onPressed: ()=>ref.read(invoiceProvider.notifier).removeItem(i)), ])); })), ListTile(leading: ElevatedButton.icon(onPressed: _search, icon: const Icon(Icons.add), label: const Text('إضافة منتج')), trailing: Text('الإجمالي: ${inv.subtotal.toStringAsFixed(2)} ريال', style: const TextStyle(fontWeight:FontWeight.bold))) ]))), const SizedBox(height:16), Row(children: [ Expanded(child: TextField(controller: _discount, decoration: const InputDecoration(labelText:'الخصم'), onChanged: (v)=>ref.read(invoiceProvider.notifier).setDiscount(double.tryParse(v)??0))), const SizedBox(width:16), Expanded(child: Text('الضريبة: ${inv.taxAmount.toStringAsFixed(2)} ريال')), const SizedBox(width:16), Expanded(child: Text('الإجمالي النهائي: ${inv.finalTotal.toStringAsFixed(2)} ريال', style: const TextStyle(fontWeight:FontWeight.bold, fontSize:18))) ]) ]))); }
-  void _search() { showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (ctx) => DraggableScrollableSheet(expand: false, initialChildSize:0.7, builder: (c, scroll) => Consumer(builder: (c, ref, _) { final query = ref.watch(_searchQuery); final prods = ref.watch(searchProductsProvider(query)); return Padding(padding: const EdgeInsets.all(16), child: Column(children: [ TextField(decoration: const InputDecoration(hintText:'بحث...', prefixIcon: Icon(Icons.search)), onChanged: (v)=>ref.read(_searchQuery.notifier).state=v), const SizedBox(height:12), Expanded(child: prods.when(data: (list)=>ListView.builder(controller: scroll, itemCount: list.length, itemBuilder: (c,i){ final p = list[i]; return ListTile(title: Text(p.name), subtitle: Text('${p.unitPrice} ريال'), trailing: ElevatedButton(onPressed: ()=>ref.read(invoiceProvider.notifier).addProduct(p), child: const Text('إضافة'))); }), loading: ()=>const Center(child: CircularProgressIndicator()), error: (e,_)=>Center(child: Text('$e')))) ])); }))); }
-  void _save() async { final api = ref.read(apiServiceProvider); final inv = ref.read(invoiceProvider); final data = { 'invoice_number': 'INV-${DateTime.now().millisecondsSinceEpoch}', 'customer_name': _name.text, 'customer_phone': _phone.text, 'subtotal': inv.subtotal, 'discount': inv.discount, 'tax_amount': inv.taxAmount, 'total_amount': inv.finalTotal, 'items': inv.items.map((i)=>{'sku':i.product.sku, 'quantity':i.quantity, 'unit_price':i.unitPrice}).toList() }; await api.createInvoice(data); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحفظ'))); context.pop(); } }
-final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref, q) async { if(q.isEmpty) return []; return await ref.read(apiServiceProvider).searchProducts(query: q); });
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../providers/invoice_provider.dart';
+import '../../../catalog/presentation/providers/product_provider.dart';
+import '../../../../services/api_service.dart';
+import '../../../../models/product_model.dart';
+
+class InvoiceScreen extends ConsumerStatefulWidget {
+  const InvoiceScreen({super.key});
+  @override
+  ConsumerState<InvoiceScreen> createState() => _InvoiceScreenState();
+}
+
+class _InvoiceScreenState extends ConsumerState<InvoiceScreen> {
+  final _name = TextEditingController(), _phone = TextEditingController(), _discount = TextEditingController();
+  final _searchQuery = StateProvider<String>((ref) => '');
+  @override
+  Widget build(BuildContext context) {
+    final inv = ref.watch(invoiceProvider);
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('فاتورة جديدة'), actions: [IconButton(icon: const Icon(Icons.save), onPressed: _save)]),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  TextField(controller: _name, decoration: const InputDecoration(labelText: 'اسم العميل')),
+                  TextField(controller: _phone, decoration: const InputDecoration(labelText: 'رقم الهاتف'), keyboardType: TextInputType.phone),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Card(
+                child: Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(children: const [
+                      Expanded(flex: 3, child: Text('المنتج', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('الكمية')),
+                      Expanded(child: Text('السعر')),
+                      SizedBox(width: 40)
+                    ]),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: inv.items.length,
+                      itemBuilder: (c, i) {
+                        final it = inv.items[i];
+                        return ListTile(
+                          title: Text(it.product.name),
+                          subtitle: Text('${it.product.unitPrice} ريال'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.remove), onPressed: () => ref.read(invoiceProvider.notifier).decrementQuantity(i)),
+                              Text('${it.quantity}'),
+                              IconButton(icon: const Icon(Icons.add), onPressed: () => ref.read(invoiceProvider.notifier).incrementQuantity(i)),
+                              IconButton(icon: const Icon(Icons.delete), onPressed: () => ref.read(invoiceProvider.notifier).removeItem(i)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: ElevatedButton.icon(onPressed: _search, icon: const Icon(Icons.add), label: const Text('إضافة منتج')),
+                    trailing: Text('الإجمالي: ${inv.subtotal.toStringAsFixed(2)} ريال', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  )
+                ]),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: TextField(controller: _discount, decoration: const InputDecoration(labelText: 'الخصم'), onChanged: (v) => ref.read(invoiceProvider.notifier).setDiscount(double.tryParse(v) ?? 0))),
+              const SizedBox(width: 16),
+              Expanded(child: Text('الضريبة: ${inv.taxAmount.toStringAsFixed(2)} ريال')),
+              const SizedBox(width: 16),
+              Expanded(child: Text('الإجمالي النهائي: ${inv.finalTotal.toStringAsFixed(2)} ريال', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+            ])
+          ]),
+        ),
+      ),
+    );
+  }
+  void _search() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (c, scroll) => Consumer(builder: (c, ref, _) {
+          final query = ref.watch(_searchQuery);
+          final prods = ref.watch(searchProductsProvider(query));
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              TextField(
+                decoration: const InputDecoration(hintText: 'بحث...', prefixIcon: Icon(Icons.search)),
+                onChanged: (v) => ref.read(_searchQuery.notifier).state = v,
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: prods.when(
+                  data: (list) => ListView.builder(
+                    controller: scroll,
+                    itemCount: list.length,
+                    itemBuilder: (c, i) {
+                      final p = list[i];
+                      return ListTile(
+                        title: Text(p.name),
+                        subtitle: Text('${p.unitPrice} ريال'),
+                        trailing: ElevatedButton(
+                          onPressed: () => ref.read(invoiceProvider.notifier).addProduct(p),
+                          child: const Text('إضافة'),
+                        ),
+                      );
+                    },
+                  ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('$e')),
+                ),
+              ),
+            ]),
+          );
+        }),
+      ),
+    );
+  }
+  void _save() async {
+    final api = ref.read(apiServiceProvider);
+    final inv = ref.read(invoiceProvider);
+    final data = {
+      'invoice_number': 'INV-${DateTime.now().millisecondsSinceEpoch}',
+      'customer_name': _name.text,
+      'customer_phone': _phone.text,
+      'subtotal': inv.subtotal,
+      'discount': inv.discount,
+      'tax_amount': inv.taxAmount,
+      'total_amount': inv.finalTotal,
+      'items': inv.items.map((i) => {'sku': i.product.sku, 'quantity': i.quantity, 'unit_price': i.unitPrice}).toList()
+    };
+    await api.createInvoice(data);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الحفظ')));
+    context.pop();
+  }
+}
+final searchProductsProvider = FutureProvider.family<List<Product>, String>((ref, q) async {
+  if (q.isEmpty) return [];
+  return await ref.read(apiServiceProvider).searchProducts(query: q);
+});

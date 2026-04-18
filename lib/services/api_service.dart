@@ -27,3 +27,7 @@ class ApiService {
   Future<void> updateOrderStatus(int id, String status) async => await _dio.patch('/rest/v1/invoices?id=eq.$id', data: {'status':status});
   Future<Map<String,dynamic>> getDashboardStats() async { return {'newOrders':12,'totalSales':5500.0,'dailyInvoices':35,'availableProducts':1250}; }
 }
+
+  Future<Map<String, dynamic>> syncProducts(List<Map<String, String>> localProductsMeta) async {
+    return {'updated': [], 'deleted': []};
+  }

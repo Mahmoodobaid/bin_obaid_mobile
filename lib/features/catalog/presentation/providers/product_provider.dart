@@ -132,34 +132,6 @@ class ProductNotifier extends StateNotifier<ProductState> {
     }
   }
 
-  Future<void> smartSync() async {
-    final api = ref.read(apiServiceProvider);
-    final localMeta = state.products.map((p) => {
-      'sku': p.sku,
-      'last_updated': p.lastUpdated.toIso8601String(),
-    }).toList();
-
-    final result = await api.syncProducts(localMeta);
-    final updated = (result['updated'] as List).map((e) => Product.fromJson(e)).toList();
-    final deletedSkus = result['deleted'] as List<String>;
-
-    var newProducts = state.products.where((p) => !deletedSkus.contains(p.sku)).toList();
-    for (var updatedProduct in updated) {
-      final index = newProducts.indexWhere((p) => p.sku == updatedProduct.sku);
-      if (index >= 0) {
-        newProducts[index] = updatedProduct;
-      } else {
-        newProducts.add(updatedProduct);
-      }
-    }
-
-    state = state.copyWith(
-      products: newProducts,
-      lastSyncTime: DateTime.now(),
-    );
-    await LocalStorageService.saveProducts(newProducts);
-  }
-
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query.isEmpty ? null : query, hasMore: true, currentPage: 0);
     loadProducts(refresh: true);
