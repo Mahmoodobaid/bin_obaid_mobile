@@ -101,6 +101,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
       );
 
       final allProducts = refresh ? newProducts : [...state.products, ...newProducts];
+      print('✅ عدد المنتجات المستلمة: ${newProducts.length}');
 
       if (refresh && newPage == 1) {
         await LocalStorageService.saveProducts(allProducts);
