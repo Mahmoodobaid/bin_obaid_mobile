@@ -1,31 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../services/api_service.dart';
-
-final databaseManagerProvider = StateNotifierProvider<DatabaseManagerNotifier, DatabaseManagerState>((ref) => DatabaseManagerNotifier(ref));
-
-class DatabaseManagerState {
-  final List<String> tables;
-  final List<Map<String, dynamic>> data;
-  final bool isLoadingTables;
-  final bool isLoadingData;
-  DatabaseManagerState({this.tables = const [], this.data = const [], this.isLoadingTables = false, this.isLoadingData = false});
-  DatabaseManagerState copyWith({List<String>? tables, List<Map<String, dynamic>>? data, bool? isLoadingTables, bool? isLoadingData}) =>
-      DatabaseManagerState(tables: tables ?? this.tables, data: data ?? this.data, isLoadingTables: isLoadingTables ?? this.isLoadingTables, isLoadingData: isLoadingData ?? this.isLoadingData);
-}
-
-class DatabaseManagerNotifier extends StateNotifier<DatabaseManagerState> {
-  final Ref ref;
-  DatabaseManagerNotifier(this.ref) : super(DatabaseManagerState());
-
-  Future<void> loadTables() async {
-    state = state.copyWith(isLoadingTables: true);
-    final api = ref.read(apiServiceProvider);
-    state = state.copyWith(tables: await api.getTables(), isLoadingTables: false);
-  }
-
-  Future<void> loadTableData({required String table, required int limit}) async {
-    state = state.copyWith(isLoadingData: true);
-    final api = ref.read(apiServiceProvider);
-    state = state.copyWith(data: await api.getTableData(table, limit: limit), isLoadingData: false);
-  }
-}
+import 'package:flutter_riverpod/flutter_riverpod.dart'; import '../../../../services/api_service.dart'; final databaseManagerProvider = StateNotifierProvider<DatabaseManagerNotifier, DatabaseManagerState>((ref)=>DatabaseManagerNotifier(ref));
+class DatabaseManagerState { final List<String> tables; final List<Map<String,dynamic>> data; final bool isLoadingTables, isLoadingData; DatabaseManagerState({this.tables=const[], this.data=const[], this.isLoadingTables=false, this.isLoadingData=false}); DatabaseManagerState copyWith({List<String>? tables, List<Map<String,dynamic>>? data, bool? isLoadingTables, bool? isLoadingData}) => DatabaseManagerState(tables: tables??this.tables, data: data??this.data, isLoadingTables: isLoadingTables??this.isLoadingTables, isLoadingData: isLoadingData??this.isLoadingData); }
+class DatabaseManagerNotifier extends StateNotifier<DatabaseManagerState> { final Ref ref; DatabaseManagerNotifier(this.ref) : super(DatabaseManagerState()); Future<void> loadTables() async { state = state.copyWith(isLoadingTables:true); final api = ref.read(apiServiceProvider); state = state.copyWith(tables: await api.getTables(), isLoadingTables:false); } Future<void> loadTableData({required String table, required int limit}) async { state = state.copyWith(isLoadingData:true); final api = ref.read(apiServiceProvider); state = state.copyWith(data: await api.getTableData(table, limit:limit), isLoadingData:false); } }

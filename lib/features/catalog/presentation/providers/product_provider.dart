@@ -80,14 +80,14 @@ class ProductNotifier extends StateNotifier<ProductState> {
 
   Future<void> _init() async {
     final lastSync = await LocalStorageService.getLastSyncTime();
-    state = state.copyWith(lastSyncTime: lastSync);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(lastSyncTime: lastSync);
   }
 
   Future<void> loadProducts({bool refresh = false}) async {
     if (state.isLoading) return;
     if (!refresh && !state.hasMore) return;
 
-    state = state.copyWith(isLoading: true, error: null);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(isLoading: true, error: null);
 
     try {
       final api = ref.read(apiServiceProvider);
@@ -106,7 +106,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         await LocalStorageService.saveProducts(allProducts);
       }
 
-      state = state.copyWith(
+      print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(
         products: allProducts,
         isLoading: false,
         hasMore: newProducts.length == _pageSize,
@@ -117,14 +117,14 @@ class ProductNotifier extends StateNotifier<ProductState> {
     } catch (e) {
       final localProducts = await LocalStorageService.getProducts();
       if (localProducts.isNotEmpty) {
-        state = state.copyWith(
+        print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(
           products: localProducts,
           isLoading: false,
           hasMore: false,
           error: null,
         );
       } else {
-        state = state.copyWith(
+        print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(
           isLoading: false,
           error: 'فشل الاتصال بالسيرفر: $e',
         );
@@ -153,7 +153,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
       }
     }
 
-    state = state.copyWith(
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(
       products: newProducts,
       lastSyncTime: DateTime.now(),
     );
@@ -161,20 +161,20 @@ class ProductNotifier extends StateNotifier<ProductState> {
   }
 
   void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query.isEmpty ? null : query, hasMore: true, currentPage: 0);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(searchQuery: query.isEmpty ? null : query, hasMore: true, currentPage: 0);
     loadProducts(refresh: true);
   }
 
   void setCategory(String? category) {
-    state = state.copyWith(selectedCategory: category, hasMore: true, currentPage: 0);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(selectedCategory: category, hasMore: true, currentPage: 0);
     loadProducts(refresh: true);
   }
 
-  void setSortBy(String sortBy) => state = state.copyWith(sortBy: sortBy);
-  void setInStockOnly(bool value) => state = state.copyWith(inStockOnly: value);
+  void setSortBy(String sortBy) => print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(sortBy: sortBy);
+  void setInStockOnly(bool value) => print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(inStockOnly: value);
   
   Future<void> refresh() async {
-    state = state.copyWith(hasMore: true, currentPage: 0, error: null);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(hasMore: true, currentPage: 0, error: null);
     await loadProducts(refresh: true);
   }
 }
@@ -192,13 +192,13 @@ class CategoryNotifier extends StateNotifier<CategoryState> {
   CategoryNotifier(this.ref) : super(CategoryState());
 
   Future<void> loadCategories() async {
-    state = state.copyWith(isLoading: true);
+    print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(isLoading: true);
     try {
       final api = ref.read(apiServiceProvider);
       final categories = await api.fetchCategories();
-      state = state.copyWith(categories: categories, isLoading: false);
+      print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(categories: categories, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false);
+      print('✅ عدد المنتجات المستلمة: ${newProducts.length}'); state = state.copyWith(isLoading: false);
     }
   }
 }
