@@ -1,3 +1,4 @@
+import '../../../../services/backup_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; import 'package:shared_preferences/shared_preferences.dart'; import 'package:local_auth/local_auth.dart'; import '../../../../models/user_model.dart'; import '../../../../services/api_service.dart';
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) => AuthNotifier(ref));
 class AuthState { final bool isLoading; final String? error; final UserModel? currentUser; final bool isOfflineMode; const AuthState({this.isLoading=false, this.error, this.currentUser, this.isOfflineMode=false}); AuthState copyWith({bool? isLoading, String? error, UserModel? currentUser, bool? isOfflineMode}) => AuthState(isLoading: isLoading??this.isLoading, error: error, currentUser: currentUser??this.currentUser, isOfflineMode: isOfflineMode??this.isOfflineMode); bool get isAuthenticated => currentUser!=null || isOfflineMode; bool get isAdmin => currentUser?.role=='admin'; bool get isDelivery => currentUser?.role=='delivery'; }
@@ -9,3 +10,9 @@ class AuthNotifier extends StateNotifier<AuthState> { final Ref ref; final Local
   Future<bool> enableBiometric(String phone, String password) async { final can = await _auth.canCheckBiometrics; if(!can) return false; final did = await _auth.authenticate(localizedReason: 'تفعيل البصمة'); if(did) { final p = await SharedPreferences.getInstance(); await p.setString('saved_phone',phone); await p.setString('saved_password',password); await p.setBool('biometric_enabled',true); return true; } return false; }
   void logout() async { state = const AuthState(); final p = await SharedPreferences.getInstance(); await p.remove('saved_phone'); await p.remove('saved_password'); await p.setBool('biometric_enabled',false); }
 }
+
+  Future<void> logoutWithBackup() async {
+    final role = state.currentUser?.role ?? 'customer';
+    await BackupService.createBackup(userRole: role);
+    logout();
+  }

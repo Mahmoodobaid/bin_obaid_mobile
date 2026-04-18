@@ -77,6 +77,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
         title: const Text('كتالوج المنتجات'),
         actions: [
           IconButton(

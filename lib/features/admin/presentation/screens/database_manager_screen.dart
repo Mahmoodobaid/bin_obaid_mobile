@@ -59,6 +59,7 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(databaseManagerProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -84,7 +85,7 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
             if (_showDrawer)
               Container(
                 width: 280,
-                color: Colors.grey.shade100,
+                color: isDark ? const Color(0xFF1E1E2F) : Colors.grey.shade100,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -93,11 +94,29 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('معلومات الاتصال', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            'معلومات الاتصال',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          Text(AppConfig.supabaseUrl, style: const TextStyle(fontSize: 11)),
+                          Text(
+                            AppConfig.supabaseUrl,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          const Text('Project: ackxfnznrjufhppaznjd', style: TextStyle(fontSize: 11)),
+                          Text(
+                            'Project: ackxfnznrjufhppaznjd',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -110,8 +129,16 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
                               itemBuilder: (_, i) {
                                 final table = state.tables[i];
                                 return ListTile(
-                                  title: Text(table),
+                                  title: Text(
+                                    table,
+                                    style: TextStyle(
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
                                   selected: _selectedTable == table,
+                                  selectedTileColor: isDark
+                                      ? Colors.blueGrey.shade800
+                                      : Colors.blue.shade50,
                                   onTap: () => _selectTable(table),
                                 );
                               },
@@ -120,29 +147,53 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
                   ],
                 ),
               ),
-            // منطقة عرض البيانات (تتمدد لملء المساحة المتبقية)
+            // منطقة عرض البيانات
             Expanded(
               child: _selectedTable == null
-                  ? const Center(child: Text('اختر جدولاً من القائمة لعرض البيانات'))
+                  ? Center(
+                      child: Text(
+                        'اختر جدولاً من القائمة لعرض البيانات',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    )
                   : Column(
                       children: [
-                        // شريط التحكم (الحد والتحديث)
+                        // شريط التحكم
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Row(
                             children: [
-                              Chip(label: Text(_selectedTable!, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              Chip(
+                                label: Text(
+                                  _selectedTable!,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
                               const Spacer(),
                               SizedBox(
                                 width: 80,
                                 child: TextField(
                                   controller: _limitController,
-                                  decoration: const InputDecoration(labelText: 'الحد'),
+                                  decoration: InputDecoration(
+                                    labelText: 'الحد',
+                                    labelStyle: TextStyle(
+                                      color: isDark ? Colors.white54 : Colors.black54,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
                                   onSubmitted: (_) => _refresh(),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.refresh),
+                                icon: Icon(
+                                  Icons.refresh,
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
                                 onPressed: _refresh,
                               ),
                             ],
@@ -150,7 +201,7 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
                         ),
                         // عرض البيانات
                         Expanded(
-                          child: _buildDataView(state),
+                          child: _buildDataView(state, isDark),
                         ),
                       ],
                     ),
@@ -161,26 +212,54 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
     );
   }
 
-  Widget _buildDataView(DatabaseManagerState state) {
+  Widget _buildDataView(DatabaseManagerState state, bool isDark) {
     if (state.isLoadingData) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (state.data.isEmpty) {
-      return const Center(child: Text('لا توجد بيانات في هذا الجدول'));
+      return Center(
+        child: Text(
+          'لا توجد بيانات في هذا الجدول',
+          style: TextStyle(
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+      );
     }
 
     final columns = state.data.first.keys.toList();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        columns: columns.map((col) => DataColumn(label: Text(col))).toList(),
+        headingRowColor: WidgetStateProperty.all(
+          isDark ? Colors.blueGrey.shade800 : Colors.blue.shade50,
+        ),
+        dataRowColor: WidgetStateProperty.all(Colors.transparent),
+        columns: columns
+            .map(
+              (col) => DataColumn(
+                label: Text(
+                  col,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
         rows: state.data.map((row) {
           return DataRow(
             cells: columns.map((col) {
               final value = row[col]?.toString() ?? '';
               return DataCell(
-                Text(value),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
                 onTap: () => _showEditDialog(row),
               );
             }).toList(),
@@ -202,7 +281,10 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
         ],
       ),
     );

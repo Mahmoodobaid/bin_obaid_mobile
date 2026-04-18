@@ -24,6 +24,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> with SingleTickerProv
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
           title: const Text('لوحة تحكم المدير'),
           bottom: TabBar(controller: _tab, tabs: const [Tab(text: 'طلبات التسجيل'), Tab(text: 'استعادة كلمة المرور')]),
         ),
