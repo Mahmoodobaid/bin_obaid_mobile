@@ -32,7 +32,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     _loadProduct();
   }
 
-  Future<void> _loadProduct() async {
+  Future<void>  _loadProduct() async {
+    print('📱 فتح شاشة تفاصيل المنتج بـ SKU: ${widget.sku}');
     final api = ref.read(apiServiceProvider);
     final product = await api.fetchProductBySku(widget.sku);
     setState(() {
@@ -116,7 +117,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_product == null) return Scaffold(appBar: AppBar(title: const Text('المنتج غير موجود')), body: const Center(child: Text('لم يتم العثور على المنتج')));
+    if (_product == null) return Scaffold(appBar: AppBar(title: const Text('المنتج غير موجود'), leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context))), body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.error_outline, size: 64, color: Colors.red), const SizedBox(height: 16), Text('لم يتم العثور على المنتج\nSKU: ${widget.sku}', textAlign: TextAlign.center), const SizedBox(height: 24), ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('رجوع'))])));
     final product = _product!;
     return Directionality(
       textDirection: TextDirection.rtl,
