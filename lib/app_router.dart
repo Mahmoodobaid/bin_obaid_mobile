@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart'; import 'package:flutter_riverpod/flutter_riverpod.dart'; import 'package:go_router/go_router.dart';
 import 'features/admin/reports/presentation/screens/reports_screen.dart';
+import 'features/admin/connection_settings/presentation/screens/connection_settings_screen.dart';
 import 'features/admin/customers/presentation/screens/customers_screen.dart';
 import 'features/admin/orders/presentation/screens/orders_screen.dart';
 import 'features/invoices/presentation/screens/invoice_list_screen.dart';
@@ -20,4 +21,5 @@ GoRoute(path: '/admin/invoices', builder: (_, __) => const InvoiceListScreen()),
 GoRoute(path: '/admin/orders', builder: (_, __) => const OrdersScreen()),
 GoRoute(path: '/admin/customers', builder: (_, __) => const CustomersScreen()),
 GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
+      GoRoute(path: '/admin/connection-settings', builder: (_, __) => const ConnectionSettingsScreen()),
 GoRoute(path: '/', builder: (_, __) => const HomeScreen()),

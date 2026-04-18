@@ -8,10 +8,11 @@ import '../models/product_model.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
 class ApiService {
-  static const String baseUrl = AppConfig.supabaseUrl;
+  static String get baseUrl => _getBaseUrl();
   static const String anonKey = AppConfig.supabaseAnonKey;
 
   late final Dio _dio = Dio(BaseOptions(
+  static String _getBaseUrl() { return AppConfig.supabaseUrl; }
     baseUrl: baseUrl,
     headers: {
       'apikey': anonKey,
