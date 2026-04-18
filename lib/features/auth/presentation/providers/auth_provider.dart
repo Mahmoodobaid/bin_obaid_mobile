@@ -11,6 +11,7 @@ class AuthNotifier extends StateNotifier<AuthState> { final Ref ref; final Local
   void logout() async { state = const AuthState(); final p = await SharedPreferences.getInstance(); await p.remove('saved_phone'); await p.remove('saved_password'); await p.setBool('biometric_enabled',false); }
 }
 
+
   Future<void> logoutWithBackup() async {
     final role = state.currentUser?.role ?? 'customer';
     await BackupService.createBackup(userRole: role);
