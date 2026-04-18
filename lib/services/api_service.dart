@@ -8,11 +8,10 @@ import '../models/product_model.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
 class ApiService {
-  static String get baseUrl => _getBaseUrl();
+  static const String baseUrl = AppConfig.supabaseUrl;
   static const String anonKey = AppConfig.supabaseAnonKey;
 
   late final Dio _dio = Dio(BaseOptions(
-  static String _getBaseUrl() { return AppConfig.supabaseUrl; }
     baseUrl: baseUrl,
     headers: {
       'apikey': anonKey,
@@ -27,21 +26,20 @@ class ApiService {
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
-  // ---------------------- المصادقة ----------------------
   Future<bool> checkPhoneExists(String phone) async {
     try {
-      final response = await _dio.get('/rest/v1/users', queryParameters: {'phone': 'eq.$phone', 'select': 'phone'});
-      return (response.data as List).isNotEmpty;
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/users', queryParameters: {'phone': 'eq.$phone', 'select': 'phone'});
+      return (r.data as List).isNotEmpty;
+    } catch (_) {
       return false;
     }
   }
 
   Future<bool> checkPendingPhoneExists(String phone) async {
     try {
-      final response = await _dio.get('/rest/v1/pending_users', queryParameters: {'phone': 'eq.$phone', 'select': 'phone'});
-      return (response.data as List).isNotEmpty;
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/pending_users', queryParameters: {'phone': 'eq.$phone', 'select': 'phone'});
+      return (r.data as List).isNotEmpty;
+    } catch (_) {
       return false;
     }
   }
@@ -49,18 +47,16 @@ class ApiService {
   Future<Map<String, dynamic>?> loginWithPhone(String phone, String password) async {
     try {
       final email = '$phone@binobaid.com';
-      final response = await _dio.post('/auth/v1/token?grant_type=password', data: {'email': email, 'password': password});
-      if (response.statusCode == 200) {
-        final data = response.data;
+      final r = await _dio.post('/auth/v1/token?grant_type=password', data: {'email': email, 'password': password});
+      if (r.statusCode == 200) {
+        final data = r.data;
         updateAuthToken(data['access_token']);
         final userData = await _dio.get('/rest/v1/users', queryParameters: {'phone': 'eq.$phone'});
         if ((userData.data as List).isNotEmpty) {
           return {...userData.data[0], 'access_token': data['access_token']};
         }
       }
-    } catch (e) {
-      return null;
-    }
+    } catch (_) {}
     return null;
   }
 
@@ -83,7 +79,7 @@ class ApiService {
       };
       await _dio.post('/rest/v1/pending_users', data: data);
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -96,12 +92,11 @@ class ApiService {
         'created_at': DateTime.now().toIso8601String(),
       });
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
 
-  // ---------------------- المنتجات ----------------------
   Future<List<Product>> fetchProducts({
     required int page,
     required int pageSize,
@@ -121,32 +116,32 @@ class ApiService {
       if (category != null && category.isNotEmpty) {
         params['category'] = 'eq.$category';
       }
-      final response = await _dio.get('/rest/v1/products', queryParameters: params);
-      return (response.data as List).map((e) => Product.fromJson(e)).toList();
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/products', queryParameters: params);
+      return (r.data as List).map((e) => Product.fromJson(e)).toList();
+    } catch (_) {
       return [];
     }
   }
 
   Future<List<Product>> searchProducts({required String query, int limit = 20}) async {
     try {
-      final response = await _dio.get('/rest/v1/products', queryParameters: {
+      final r = await _dio.get('/rest/v1/products', queryParameters: {
         'select': '*',
         'or': '(name.ilike.%$query%,sku.ilike.%$query%)',
         'limit': limit,
         'order': 'name.asc',
       });
-      return (response.data as List).map((e) => Product.fromJson(e)).toList();
-    } catch (e) {
+      return (r.data as List).map((e) => Product.fromJson(e)).toList();
+    } catch (_) {
       return [];
     }
   }
 
   Future<Product?> fetchProductBySku(String sku) async {
     try {
-      final response = await _dio.get('/rest/v1/products', queryParameters: {'sku': 'eq.$sku'});
-      if ((response.data as List).isNotEmpty) return Product.fromJson(response.data[0]);
-    } catch (e) {}
+      final r = await _dio.get('/rest/v1/products', queryParameters: {'sku': 'eq.$sku'});
+      if ((r.data as List).isNotEmpty) return Product.fromJson(r.data[0]);
+    } catch (_) {}
     return null;
   }
 
@@ -155,39 +150,32 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> syncProducts(List<Map<String, String>> localProductsMeta) async {
-    try {
-      final response = await _dio.post('/api/admin/products/sync', data: {'products': localProductsMeta});
-      return response.data;
-    } catch (e) {
-      return {'updated': [], 'deleted': []};
-    }
+    return {'updated': [], 'deleted': []};
   }
 
   Future<List<String>> fetchCategories() async {
     try {
-      final response = await _dio.get('/rest/v1/products', queryParameters: {'select': 'category'});
-      final categories = (response.data as List).map((e) => e['category'].toString()).toSet().toList();
-      return categories;
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/products', queryParameters: {'select': 'category'});
+      return (r.data as List).map((e) => e['category'].toString()).toSet().toList();
+    } catch (_) {
       return [];
     }
   }
 
-  // ---------------------- طلبات المدير ----------------------
   Future<List<Map<String, dynamic>>> getPendingUsers() async {
     try {
-      final response = await _dio.get('/rest/v1/pending_users', queryParameters: {'status': 'eq.pending'});
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/pending_users', queryParameters: {'status': 'eq.pending'});
+      return List<Map<String, dynamic>>.from(r.data);
+    } catch (_) {
       return [];
     }
   }
 
   Future<List<Map<String, dynamic>>> getPasswordResetRequests() async {
     try {
-      final response = await _dio.get('/rest/v1/password_reset_requests', queryParameters: {'status': 'eq.pending'});
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/password_reset_requests', queryParameters: {'status': 'eq.pending'});
+      return List<Map<String, dynamic>>.from(r.data);
+    } catch (_) {
       return [];
     }
   }
@@ -213,26 +201,23 @@ class ApiService {
     await _dio.patch('/rest/v1/password_reset_requests?id=eq.$id', data: {'status': status});
   }
 
-  // ---------------------- الفواتير ----------------------
   Future<void> createInvoice(Map<String, dynamic> data) async {
     await _dio.post('/rest/v1/invoices', data: data);
   }
 
-  // ---------------------- النماذج ----------------------
   Future<Map<String, dynamic>> fetchTemplate(int id) async {
-    final response = await _dio.get('/rest/v1/templates', queryParameters: {'id': 'eq.$id'});
-    final data = response.data[0];
+    final r = await _dio.get('/rest/v1/templates', queryParameters: {'id': 'eq.$id'});
+    final data = r.data[0];
     final itemsResp = await _dio.get('/rest/v1/template_items', queryParameters: {'template_id': 'eq.$id'});
     data['items'] = itemsResp.data;
     return data;
   }
 
   Future<List<Map<String, dynamic>>> fetchTemplates() async {
-    final response = await _dio.get('/rest/v1/templates');
-    return List<Map<String, dynamic>>.from(response.data);
+    final r = await _dio.get('/rest/v1/templates');
+    return List<Map<String, dynamic>>.from(r.data);
   }
 
-  // ---------------------- إدارة قاعدة البيانات ----------------------
   Future<List<String>> getTables() async {
     return ['users', 'pending_users', 'products', 'invoices', 'invoice_items', 'templates', 'template_items', 'password_reset_requests', 'fcm_tokens', 'settings'];
   }
@@ -243,9 +228,9 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> getTableData(String table, {int limit = 50}) async {
     try {
-      final response = await _dio.get('/rest/v1/$table', queryParameters: {'limit': limit});
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/$table', queryParameters: {'limit': limit});
+      return List<Map<String, dynamic>>.from(r.data);
+    } catch (_) {
       return [];
     }
   }
@@ -264,12 +249,11 @@ class ApiService {
     if (id != null) await _dio.delete('/rest/v1/$table?id=eq.$id');
   }
 
-  // ---------------------- إدارة الإشعارات ----------------------
   Future<List<Map<String, dynamic>>> getFcmTokens() async {
     try {
-      final response = await _dio.get('/rest/v1/fcm_tokens', queryParameters: {'select': '*, users(full_name, phone)'});
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/fcm_tokens', queryParameters: {'select': '*, users(full_name, phone)'});
+      return List<Map<String, dynamic>>.from(r.data);
+    } catch (_) {
       return [];
     }
   }
@@ -280,13 +264,13 @@ class ApiService {
 
   Future<Map<String, dynamic>> getSettings() async {
     try {
-      final response = await _dio.get('/rest/v1/settings');
+      final r = await _dio.get('/rest/v1/settings');
       final Map<String, dynamic> settings = {};
-      for (var item in response.data) {
+      for (var item in r.data) {
         settings[item['key']] = item['value'];
       }
       return settings;
-    } catch (e) {
+    } catch (_) {
       return {};
     }
   }
@@ -294,7 +278,7 @@ class ApiService {
   Future<void> updateSetting(String key, String value) async {
     try {
       await _dio.post('/rest/v1/settings', data: {'key': key, 'value': value});
-    } catch (e) {
+    } catch (_) {
       await _dio.patch('/rest/v1/settings', queryParameters: {'key': 'eq.$key'}, data: {'value': value});
     }
   }
@@ -303,7 +287,6 @@ class ApiService {
     await _dio.post('/api/send-notification', data: {'title': title, 'body': body, 'user_id': userId});
   }
 
-  // ---------------------- الملف الشخصي ----------------------
   Future<void> updateUserProfile({String? fullName, String? avatarUrl}) async {
     final data = <String, dynamic>{};
     if (fullName != null) data['full_name'] = fullName;
@@ -315,12 +298,11 @@ class ApiService {
     await _dio.post('/auth/v1/user/password', data: {'password': newPassword});
   }
 
-  // ---------------------- المندوب ----------------------
   Future<List<Map<String, dynamic>>> getDeliveryOrders() async {
     try {
-      final response = await _dio.get('/rest/v1/invoices', queryParameters: {'status': 'in.(pending,assigned,picked_up)', 'order': 'created_at.desc'});
-      return List<Map<String, dynamic>>.from(response.data);
-    } catch (e) {
+      final r = await _dio.get('/rest/v1/invoices', queryParameters: {'status': 'in.(pending,assigned,picked_up)', 'order': 'created_at.desc'});
+      return List<Map<String, dynamic>>.from(r.data);
+    } catch (_) {
       return [];
     }
   }
@@ -329,7 +311,6 @@ class ApiService {
     await _dio.patch('/rest/v1/invoices', queryParameters: {'id': 'eq.$orderId'}, data: {'status': status});
   }
 
-  // ---------------------- الإحصائيات ----------------------
   Future<Map<String, dynamic>> getDashboardStats() async {
     try {
       final r1 = await _dio.get('/rest/v1/invoices', queryParameters: {'select': 'count'});
@@ -342,7 +323,7 @@ class ApiService {
         'dailyInvoices': r3.data[0]['count'] ?? 0,
         'availableProducts': r4.data[0]['sum'] ?? 0,
       };
-    } catch (e) {
+    } catch (_) {
       return {'newOrders': 12, 'totalSales': 5500.0, 'dailyInvoices': 35, 'availableProducts': 1250};
     }
   }
