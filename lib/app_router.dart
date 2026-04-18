@@ -54,3 +54,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+// المسارات الجديدة (تضاف تلقائياً)
+GoRoute(path: '/admin/customers', builder: (_, __) => const CustomersScreen()),
+GoRoute(path: '/admin/orders', builder: (_, __) => const OrdersScreen()),
+GoRoute(path: '/admin/invoices', builder: (_, __) => const InvoicesListScreen()),
+GoRoute(path: '/admin/notifications', builder: (_, __) => const NotificationManagerScreen()),
+GoRoute(path: '/admin/announcements', builder: (_, __) => const AnnouncementsScreen()),
+GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
+GoRoute(path: '/admin/advanced-analytics', builder: (_, __) => const AdvancedAnalyticsScreen()),
+GoRoute(path: '/admin/roles-permissions', builder: (_, __) => const RolesPermissionsScreen()),
+GoRoute(path: '/admin/system-preferences', builder: (_, __) => const SystemPreferencesScreen()),
+GoRoute(path: '/admin/backup', builder: (_, __) => const BackupScreen()),
+GoRoute(path: '/admin/activity-log', builder: (_, __) => const ActivityLogScreen()),
