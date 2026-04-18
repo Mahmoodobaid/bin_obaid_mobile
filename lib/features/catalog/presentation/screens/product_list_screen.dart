@@ -5,6 +5,7 @@ import '../providers/product_provider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/shimmer_product_card.dart';
 import '../../../../core/widgets/empty_state.dart';
+import '../../../../services/api_service.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -32,6 +33,42 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     }
   }
 
+  Future<void> _diagnoseApi() async {
+    final api = ref.read(apiServiceProvider);
+    try {
+      final products = await api.fetchProducts(page: 1, pageSize: 5);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('تشخيص API'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('عدد المنتجات المستلمة: ${products.length}'),
+                const SizedBox(height: 12),
+                if (products.isNotEmpty)
+                  ...products.map((p) => Text('• ${p.sku}: ${p.name}')).toList()
+                else
+                  const Text('لم يتم استلام أي منتجات.'),
+              ],
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
+        ),
+      );
+    } catch (e) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('خطأ في API'),
+          content: Text('$e'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(productProvider);
@@ -43,6 +80,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         title: const Text('كتالوج المنتجات'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: _diagnoseApi,
+            tooltip: 'تشخيص API',
+          ),
+          IconButton(
             icon: const Icon(Icons.shopping_cart_outlined),
             onPressed: () => context.push('/cart'),
           ),
@@ -50,7 +92,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       ),
       body: Column(
         children: [
-          // شريط البحث
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -72,7 +113,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
               onChanged: (value) => ref.read(productProvider.notifier).setSearchQuery(value),
             ),
           ),
-          // قائمة الفئات
           if (!categoryState.isLoading)
             SizedBox(
               height: 50,
@@ -103,7 +143,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                 },
               ),
             ),
-          // شبكة المنتجات
           Expanded(
             child: state.isLoading && products.isEmpty
                 ? GridView.builder(
@@ -132,11 +171,22 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         ),
                       )
                     : products.isEmpty
-                        ? EmptyState(
-                            icon: Icons.inventory_2_outlined,
-                            message: 'لا توجد منتجات متاحة',
-                            actionLabel: 'تحديث',
-                            onAction: () => ref.read(productProvider.notifier).refresh(),
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              EmptyState(
+                                icon: Icons.inventory_2_outlined,
+                                message: state.products.isEmpty ? 'لا توجد منتجات متاحة' : 'عدد المنتجات: ${state.products.length}',
+                                actionLabel: 'تحديث',
+                                onAction: () => ref.read(productProvider.notifier).refresh(),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: _diagnoseApi,
+                                icon: const Icon(Icons.bug_report),
+                                label: const Text('تشخيص API'),
+                              ),
+                            ],
                           )
                         : RefreshIndicator(
                             onRefresh: () => ref.read(productProvider.notifier).refresh(),
