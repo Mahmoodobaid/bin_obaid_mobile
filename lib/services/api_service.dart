@@ -137,9 +137,20 @@ class ApiService {
 
   Future<Product?> fetchProductBySku(String sku) async {
     try {
-      final r = await _dio.get('/rest/v1/products', queryParameters: {'sku': 'eq.$sku'});
-      if ((r.data as List).isNotEmpty) return Product.fromJson(r.data[0]);
-    } catch (_) {}
+      print('🔍 البحث عن منتج بـ SKU: "$sku"');
+      final r = await _dio.get('/rest/v1/products', queryParameters: {
+        'sku': 'ilike.$sku', // استخدام ilike للتسامح مع حالة الأحرف
+        'limit': 1,
+      });
+      if ((r.data as List).isNotEmpty) {
+        print('✅ تم العثور على المنتج: ${r.data[0]['name']}');
+        return Product.fromJson(r.data[0]);
+      } else {
+        print('❌ لم يتم العثور على منتج بـ SKU: $sku');
+      }
+    } catch (e) {
+      print('❌ خطأ في fetchProductBySku: $e');
+    }
     return null;
   }
 
@@ -325,15 +336,12 @@ class ApiService {
       final r4 = await _dio.get('/rest/v1/products', queryParameters: {'select': 'sum(stock_quantity)'});
       return {
         'newOrders': r1.data[0]['count'] ?? 0,
-        'totalSales': r2.data[0]['sum'] ?? 0.0,
+        'totalSales': (r2.data[0]['sum'] ?? 0.0).toDouble(),
         'dailyInvoices': r3.data[0]['count'] ?? 0,
         'availableProducts': r4.data[0]['sum'] ?? 0,
       };
     } catch (_) {
-      return {'newOrders': 12, 'totalSales': 5500.0, 'dailyInvoices': 35, 'availableProducts': 1250};
+      return {'newOrders': 0, 'totalSales': 0.0, 'dailyInvoices': 0, 'availableProducts': 0};
     }
   }
-
-  // ========== أضف دوالك الجديدة هنا ==========
-  // يمكنك إضافة أي دوال جديدة في نهاية هذا الملف
 }
