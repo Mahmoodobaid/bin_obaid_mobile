@@ -100,7 +100,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
         category: state.selectedCategory,
       );
 
-      final allProducts = refresh ? newProducts : [...state.products, ...newProducts];
+      final allProducts = refresh ? newProducts : [...state.products, ...newProducts]; 
+    print('✅ عدد المنتجات المحملة: ${allProducts.length}');
       print('✅ عدد المنتجات المستلمة: ${newProducts.length}');
 
       if (refresh && newPage == 1) {
