@@ -79,7 +79,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
   }
 
   Future<void> _init() async {
-    final lastSync = LocalStorageService.getLastSyncTime();
+    final lastSync = await LocalStorageService.getLastSyncTime();
     state = state.copyWith(lastSyncTime: lastSync);
   }
 
