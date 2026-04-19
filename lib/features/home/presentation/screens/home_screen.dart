@@ -7,7 +7,6 @@ import '../providers/stats_provider.dart';
 import '../widgets/recent_invoice_tile.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../services/backup_service.dart';
-import '../../../../services/search_service.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -21,8 +20,7 @@ class HomeScreen extends ConsumerWidget {
     final stats = ref.watch(statsProvider);
     final now = DateTime.now();
     final greeting = _getGreeting(now.hour);
-    final searchService = ref.watch(searchServiceProvider);
-    final isOffline = searchService.isOffline;
+    final isOffline = auth.isOfflineMode;
 
     return WillPopScope(
       onWillPop: () => _showExitDialog(context, ref, user),
