@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../services/api_service.dart';
+import '../../../../../models/user_model.dart';
 
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
@@ -10,7 +11,7 @@ class CustomersScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomersScreenState extends ConsumerState<CustomersScreen> {
-  List<Map<String, dynamic>> _customers = [];
+  List<UserModel> _customers = [];
   bool _isLoading = true;
 
   @override
@@ -22,13 +23,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Future<void> _fetchCustomers() async {
     final api = ref.read(apiServiceProvider);
     try {
-      final response = await api.dio.get('/rest/v1/users', queryParameters: {
-        'select': 'id,full_name,phone,address',
-        'role': 'eq.customer',
-        'order': 'full_name.asc',
-      });
+      // استخدام دالة مخصصة بدلاً من الوصول المباشر لـ _dio
+      final data = await api.getTableData('users');
       setState(() {
-        _customers = List<Map<String, dynamic>>.from(response.data);
+        _customers = data
+            .where((u) => u['role'] == 'customer')
+            .map((u) => UserModel.fromJson(u))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -72,10 +73,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: CircleAvatar(
-                            child: Text(c['full_name']?[0] ?? '؟'),
+                            child: Text(c.fullName.isNotEmpty ? c.fullName[0] : '؟'),
                           ),
-                          title: Text(c['full_name'] ?? 'بدون اسم'),
-                          subtitle: Text('${c['phone'] ?? 'لا يوجد رقم'} • ${c['address'] ?? 'لا يوجد عنوان'}'),
+                          title: Text(c.fullName),
+                          subtitle: Text('${c.phone} • ${c.email}'),
                         ),
                       );
                     },
