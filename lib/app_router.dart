@@ -16,7 +16,7 @@ import 'features/settings/presentation/screens/settings_screen.dart';
 import 'features/admin/import_export/presentation/screens/import_products_screen.dart';
 import 'features/admin/manage_products/presentation/screens/manage_products_screen.dart';
 import 'features/admin/export/presentation/screens/export_products_screen.dart';
-import 'features/admin/connection_settings/presentation/screens/connection_settings_screen.dart';
+import 'features/admin/settings/presentation/screens/connection_settings_screen.dart';
 import 'features/admin/customers/presentation/screens/customers_screen.dart';
 import 'features/admin/orders/presentation/screens/orders_screen.dart';
 import 'features/admin/invoices/presentation/screens/invoices_list_screen.dart';
