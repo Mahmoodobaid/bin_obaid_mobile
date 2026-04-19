@@ -22,7 +22,7 @@ class _SystemPreferencesScreenState extends ConsumerState<SystemPreferencesScree
           title: const Text('تفضيلات النظام'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView(

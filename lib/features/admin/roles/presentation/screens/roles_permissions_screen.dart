@@ -19,7 +19,7 @@ class _RolesPermissionsScreenState extends ConsumerState<RolesPermissionsScreen>
           title: const Text('الصلاحيات والأدوار'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView(

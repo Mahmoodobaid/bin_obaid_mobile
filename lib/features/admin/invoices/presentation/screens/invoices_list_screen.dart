@@ -25,7 +25,7 @@ class _InvoicesListScreenState extends ConsumerState<InvoicesListScreen> {
           title: const Text('قائمة الفواتير'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView.builder(

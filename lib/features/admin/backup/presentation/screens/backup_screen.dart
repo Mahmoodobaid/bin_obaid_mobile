@@ -22,7 +22,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           title: const Text('النسخ الاحتياطي'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: Padding(

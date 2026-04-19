@@ -196,7 +196,7 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
                   onTap: () {
                     setState(() => _currentTable = table);
                     ref.read(databaseProvider.notifier).fetchTableData(table);
-                    if (MediaQuery.of(context).size.width <= 700) Navigator.pop(context);
+                    if (MediaQuery.of(context).size.width <= 700) context.go('/home');
                   },
                 );
               },
@@ -309,7 +309,7 @@ class _TableSource extends DataTableSource {
             ),
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('إغلاق التفاصيل'))),
+              child: SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.go('/home'), style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('إغلاق التفاصيل'))),
             )
           ],
         ),

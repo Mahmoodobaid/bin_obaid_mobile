@@ -19,7 +19,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           title: const Text('الإعلانات'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView(

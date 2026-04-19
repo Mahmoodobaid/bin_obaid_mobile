@@ -19,7 +19,7 @@ class _AdvancedAnalyticsScreenState extends ConsumerState<AdvancedAnalyticsScree
           title: const Text('تحليلات متقدمة'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: const Center(

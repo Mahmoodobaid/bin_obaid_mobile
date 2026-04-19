@@ -19,7 +19,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
           title: const Text('سجل النشاطات'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView.builder(

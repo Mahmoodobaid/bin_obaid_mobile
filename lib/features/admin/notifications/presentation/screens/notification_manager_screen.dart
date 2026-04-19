@@ -22,7 +22,7 @@ class _NotificationManagerScreenState extends ConsumerState<NotificationManagerS
           title: const Text('إدارة الإشعارات'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: Padding(

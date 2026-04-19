@@ -25,7 +25,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           title: const Text('الطلبات'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView.builder(

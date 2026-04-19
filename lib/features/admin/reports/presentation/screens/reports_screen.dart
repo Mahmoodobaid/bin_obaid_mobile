@@ -19,7 +19,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           title: const Text('التقارير'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () => context.go('/home'),
           ),
         ),
         body: ListView(
