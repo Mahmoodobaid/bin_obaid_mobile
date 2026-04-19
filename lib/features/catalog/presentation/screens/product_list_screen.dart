@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import '../providers/product_provider.dart';
 import '../widgets/product_card.dart';
 import '../widgets/shimmer_product_card.dart';
 import '../../../../core/widgets/empty_state.dart';
-import '../../../../services/search_service.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
+
   @override
   ConsumerState<ProductListScreen> createState() => _ProductListScreenState();
 }
@@ -16,15 +17,47 @@ class ProductListScreen extends ConsumerStatefulWidget {
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
+    // جلب البيانات المحلية فوراً عند الدخول
+    _initializeData();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _initializeData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(productProvider.notifier).loadProducts(refresh: true);
+      // تحميل هادئ (Silent Load) من البيانات المحلية/السيرفر
+      ref.read(productProvider.notifier).loadProducts();
       ref.read(categoryProvider.notifier).loadCategories();
     });
-    _scrollController.addListener(_onScroll);
+  }
+
+  // ميزة المزامنة الشاملة (Full Manual Sync)
+  Future<void> _handleFullSync() async {
+    // إظهار رسالة تنبيه للمستخدم
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('جاري مزامنة الأصناف مع السيرفر...'), duration: Duration(seconds: 1)),
+    );
+    
+    // تنفيذ المزامنة من خلال النوتيفاير الخاص بك
+    await ref.read(productProvider.notifier).refresh(); 
+    await ref.read(categoryProvider.notifier).loadCategories();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمت المزامنة بنجاح ✅'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      ref.read(productProvider.notifier).smartSearch(query);
+    });
   }
 
   void _onScroll() {
@@ -38,131 +71,163 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final state = ref.watch(productProvider);
     final categoryState = ref.watch(categoryProvider);
     final products = state.filteredProducts;
-    final isOffline = state.isOfflineMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('كتالوج المنتجات'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => context.push('/cart'),
-          ),
-        ],
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+        body: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // AppBar المطور مع زر المزامنة
+            SliverAppBar(
+              pinned: true,
+              floating: true,
+              expandedHeight: 100,
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.blue.shade900,
+              title: const Text('أصناف بن عبيد', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              actions: [
+                // زر المزامنة المستقل والاحترافي
+                IconButton(
+                  tooltip: 'مزامنة شاملة',
+                  icon: state.isLoading 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.sync_rounded, color: Colors.white),
+                  onPressed: state.isLoading ? null : _handleFullSync,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                  onPressed: () => context.push('/cart'),
+                ),
+              ],
+            ),
+
+            // محرك البحث وفلترة الفئات
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildSearchSection(isDark),
+                  _buildCategoryFilter(categoryState, state),
+                  if (state.isOfflineMode) _buildOfflineBanner(),
+                ],
+              ),
+            ),
+
+            // عرض البيانات (الشبكة الاحترافية)
+            state.isLoading && products.isEmpty
+                ? _buildShimmerGrid()
+                : products.isEmpty 
+                    ? SliverFillRemaining(child: _buildEmptyState())
+                    : _buildProductGrid(products),
+          ],
+        ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildSearchSection(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchChanged,
+        decoration: InputDecoration(
+          hintText: 'ابحث عن صنف، كود، أو ماركة...',
+          prefixIcon: const Icon(Icons.search, color: Colors.blue),
+          filled: true,
+          fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
+                  _searchController.clear();
+                  ref.read(productProvider.notifier).smartSearch('');
+                })
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter(dynamic catState, dynamic prodState) {
+    if (catState.isLoading) return const SizedBox(height: 10);
+    return SizedBox(
+      height: 55,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: catState.categories.length + 1,
+        itemBuilder: (_, i) {
+          final cat = i == 0 ? null : catState.categories[i - 1];
+          final isSelected = prodState.selectedCategory == cat;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ChoiceChip(
+              label: Text(cat ?? 'الكل'),
+              selected: isSelected,
+              onSelected: (_) => ref.read(productProvider.notifier).setCategory(cat),
+              selectedColor: Colors.blue,
+              labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductGrid(List products) {
+    return SliverPadding(
+      padding: const EdgeInsets.all(12),
+      slivers: [
+        SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.75,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => ProductCard(product: products[index]),
+            childCount: products.length,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShimmerGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.all(12),
+      slivers: [
+        SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.75,
+          ),
+          delegate: SliverChildBuilderDelegate((_, __) => const ShimmerProductCard(), childCount: 6),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return EmptyState(
+      icon: Icons.inventory_2_outlined,
+      message: 'لم نجد أي أصناف مطابقة لطلبك',
+      actionLabel: 'تحديث الكل',
+      onAction: _handleFullSync,
+    );
+  }
+
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (isOffline)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              color: Colors.orange.shade800,
-              child: const Text(
-                '⚠️ وضع الأوفلاين - البحث في البيانات المحلية',
-                style: TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'ابحث عن منتج...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(productProvider.notifier).smartSearch('');
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) => ref.read(productProvider.notifier).smartSearch(value),
-            ),
-          ),
-          if (!categoryState.isLoading)
-            SizedBox(
-              height: 50,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: categoryState.categories.length + 1,
-                itemBuilder: (_, i) {
-                  if (i == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FilterChip(
-                        label: const Text('الكل'),
-                        selected: state.selectedCategory == null,
-                        onSelected: (_) => ref.read(productProvider.notifier).setCategory(null),
-                      ),
-                    );
-                  }
-                  final cat = categoryState.categories[i - 1];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      label: Text(cat),
-                      selected: state.selectedCategory == cat,
-                      onSelected: (_) => ref.read(productProvider.notifier).setCategory(cat),
-                    ),
-                  );
-                },
-              ),
-            ),
-          Expanded(
-            child: state.isLoading && products.isEmpty
-                ? GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75),
-                    itemCount: 6,
-                    itemBuilder: (_, __) => const ShimmerProductCard(),
-                  )
-                : state.error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                            const SizedBox(height: 16),
-                            Text(state.error!, textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => ref.read(productProvider.notifier).refresh(),
-                              child: const Text('إعادة المحاولة'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : products.isEmpty
-                        ? EmptyState(
-                            icon: Icons.inventory_2_outlined,
-                            message: state.searchQuery != null && state.searchQuery!.isNotEmpty
-                                ? 'لا توجد منتجات تطابق البحث'
-                                : 'لا توجد منتجات متاحة',
-                            actionLabel: 'تحديث',
-                            onAction: () => ref.read(productProvider.notifier).refresh(),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: () => ref.read(productProvider.notifier).refresh(),
-                            child: GridView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(12),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75),
-                              itemCount: products.length + (state.hasMore && state.searchQuery == null ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == products.length) {
-                                  return const ShimmerProductCard();
-                                }
-                                return ProductCard(product: products[index]);
-                              },
-                            ),
-                          ),
-          ),
+          Icon(Icons.wifi_off_rounded, color: Colors.orange, size: 18),
+          SizedBox(width: 8),
+          Text('أنت تعمل في وضع الأوفلاين (البيانات المحلية)', style: TextStyle(color: Colors.orange, fontSize: 12)),
         ],
       ),
     );
@@ -172,6 +237,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 }
