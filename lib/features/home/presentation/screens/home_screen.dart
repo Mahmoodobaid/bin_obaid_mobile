@@ -14,109 +14,138 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
-    final user = auth.currentUser;
-    final isAdmin = auth.isAdmin;
-    final isDelivery = auth.isDelivery;
-    final stats = ref.watch(statsProvider);
-    final now = DateTime.now();
-    final greeting = _getGreeting(now.hour);
-    final isOffline = auth.isOfflineMode;
+    try {
+      final auth = ref.watch(authProvider);
+      final user = auth.currentUser;
+      final isAdmin = auth.isAdmin;
+      final isDelivery = auth.isDelivery;
+      final stats = ref.watch(statsProvider);
+      final now = DateTime.now();
+      final greeting = _getGreeting(now.hour);
+      final isOffline = auth.isOfflineMode;
 
-    return WillPopScope(
-      onWillPop: () => _showExitDialog(context, ref, user),
-      child: Directionality(
-        textDirection: ui.TextDirection.rtl,
-        child: Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 230.0,
-                floating: true,
-                pinned: true,
-                backgroundColor: const Color(0xFF0D1B2A),
-                flexibleSpace: FlexibleSpaceBar(
-                  titlePadding: const EdgeInsets.only(right: 16, bottom: 16),
-                  title: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.white24,
-                        backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
-                        child: user?.avatarUrl == null ? const Icon(Icons.person, size: 16, color: Colors.white) : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        user?.fullName ?? 'مدير النظام',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                  background: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                        colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
-                      ),
+      return WillPopScope(
+        onWillPop: () => _showExitDialog(context, ref, user),
+        child: Directionality(
+          textDirection: ui.TextDirection.rtl,
+          child: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 230.0,
+                  floating: true,
+                  pinned: true,
+                  backgroundColor: const Color(0xFF0D1B2A),
+                  flexibleSpace: FlexibleSpaceBar(
+                    titlePadding: const EdgeInsets.only(right: 16, bottom: 16),
+                    title: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.white24,
+                          backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
+                          child: user?.avatarUrl == null ? const Icon(Icons.person, size: 16, color: Colors.white) : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          user?.fullName ?? 'مدير النظام',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
                     ),
-                    child: SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 20, top: 50),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('$greeting،', style: const TextStyle(color: Colors.white70, fontSize: 16)),
-                            Text(user?.fullName ?? 'محمود عبيد', 
-                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            _buildStatusBadge(isOffline),
-                          ],
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
+                        ),
+                      ),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 20, top: 50),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('$greeting،', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                              Text(user?.fullName ?? 'محمود عبيد', 
+                                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 12),
+                              _buildStatusBadge(isOffline),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none, color: Colors.white),
+                      onPressed: () => context.push('/admin/notifications'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      onPressed: () => _showExitDialog(context, ref, user),
+                    ),
+                  ],
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none, color: Colors.white),
-                    onPressed: () => context.push('/admin/notifications'),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () => _showExitDialog(context, ref, user),
-                  ),
-                ],
-              ),
-              if (isOffline)
-                SliverToBoxAdapter(
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    color: Colors.orange.shade900,
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                        SizedBox(width: 10),
-                        Text('وضع العمل بدون اتصال نشط حالياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ],
+                if (isOffline)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      color: Colors.orange.shade900,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                          SizedBox(width: 10),
+                          Text('وضع العمل بدون اتصال نشط حالياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ),
+                SliverToBoxAdapter(
+                  child: stats.when(
+                    data: (data) => _buildMainContent(context, data, isAdmin, isDelivery),
+                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator())),
+                    error: (e, _) => _buildErrorWidget(ref, e),
+                  ),
                 ),
-              SliverToBoxAdapter(
-                child: stats.when(
-                  data: (data) => _buildMainContent(context, data, isAdmin, isDelivery),
-                  loading: () => const Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator())),
-                  error: (e, _) => _buildErrorWidget(ref, e),
-                ),
-              ),
-            ],
+              ],
+            ),
+            drawer: _buildFullDrawer(context, ref, user, isAdmin, isDelivery),
           ),
-          drawer: _buildFullDrawer(context, ref, user, isAdmin, isDelivery),
         ),
-      ),
-    );
+      );
+    } catch (e, stack) {
+      // معالج الأخطاء: يعرض الخطأ بدلاً من الشاشة البيضاء
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text('حدث خطأ غير متوقع في الشاشة الرئيسية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('$e', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // محاولة إعادة التحميل
+                    context.go('/login');
+                  },
+                  child: const Text('العودة لتسجيل الدخول'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildStatusBadge(bool isOffline) {
