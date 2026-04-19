@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_router.dart';
 import 'core/config/config.dart';
 import 'services/local_notification_service.dart';
@@ -13,7 +14,10 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // طلب جميع الصلاحيات المطلوبة عند بدء التشغيل
+  // مسح الإعدادات المحفوظة القديمة (التي تحتوي على الرابط الخاطئ)
+  await _clearOldSettings();
+
+  // طلب الصلاحيات
   await _requestAllPermissions();
 
   await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
@@ -24,23 +28,20 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-Future<void> _requestAllPermissions() async {
-  // قائمة الصلاحيات التي سيتم طلبها
-  List<Permission> permissions = [
-    Permission.storage,
-    Permission.location,
-    Permission.camera,
-    Permission.notification,
-    Permission.photos,
-    Permission.manageExternalStorage,
-  ];
+Future<void> _clearOldSettings() async {
+  final prefs = await SharedPreferences.getInstance();
+  // حذف الإعدادات المخصصة القديمة
+  await prefs.remove('custom_supabase_url');
+  await prefs.remove('custom_supabase_key');
+  await prefs.remove('custom_supabase_schema');
+  await prefs.remove('custom_test_table');
+}
 
-  // طلب الصلاحيات التي لم تُمنح بعد
-  for (var perm in permissions) {
-    if (await perm.isDenied || await perm.isPermanentlyDenied) {
-      await perm.request();
-    }
-  }
+Future<void> _requestAllPermissions() async {
+  await Permission.storage.request();
+  await Permission.location.request();
+  await Permission.camera.request();
+  await Permission.notification.request();
 }
 
 class MyApp extends ConsumerWidget {
