@@ -25,7 +25,8 @@ class HomeScreen extends ConsumerWidget {
     return WillPopScope(
       onWillPop: () => _showExitDialog(context, ref, user),
       child: Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: TextDirection.values.firstWhere((e) => e.toString().contains('rtl')),
+,
         child: Scaffold(
           body: CustomScrollView(
             slivers: [
