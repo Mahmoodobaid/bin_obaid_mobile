@@ -59,14 +59,8 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('تأكيد الخروج'),
         content: const Text('هل تريد الخروج من نظام محلات بن عبيد التجارية؟'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('لا'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('نعم'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لا')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('نعم')),
         ],
       ),
     );
@@ -107,7 +101,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildDrawer(BuildContext ctx, WidgetRef ref, user, bool isAdmin, bool isDelivery) => Drawer(
     child: ListView(padding: EdgeInsets.zero, children: [
-      _buildDrawerHeader(user),
+      _buildDrawerHeader(ctx, user),
       _buildSection('الرئيسية', [
         _drawerItem(Icons.dashboard, 'الرئيسية', () => ctx.go('/home')),
         _drawerItem(Icons.inventory_2, 'كتالوج المنتجات', () => ctx.go('/catalog')),
@@ -160,13 +154,17 @@ class HomeScreen extends ConsumerWidget {
     ]),
   );
 
-  Widget _buildDrawerHeader(user) => DrawerHeader(
+  Widget _buildDrawerHeader(BuildContext ctx, user) => DrawerHeader(
     decoration: const BoxDecoration(color: Color(0xFF0D1B2A)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
       CircleAvatar(radius: 30, backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null, child: user?.avatarUrl == null ? const Icon(Icons.person) : null),
       const SizedBox(height: 12),
       Text(user?.fullName ?? 'مستخدم', style: const TextStyle(color: Colors.white, fontSize: 18)),
-      Text(user?.phone ?? '', style: const TextStyle(color: Colors.white70)),
+      Row(children: [
+        Text(user?.phone ?? '', style: const TextStyle(color: Colors.white70)),
+        const Spacer(),
+        IconButton(icon: const Icon(Icons.security, color: Colors.white70), onPressed: () => ctx.push('/permissions'), tooltip: 'إدارة الصلاحيات'),
+      ]),
     ]),
   );
 
@@ -190,4 +188,3 @@ class HomeScreen extends ConsumerWidget {
     dense: true,
   );
 }
-

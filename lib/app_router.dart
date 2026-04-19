@@ -29,6 +29,7 @@ import 'features/admin/preferences/presentation/screens/system_preferences_scree
 import 'features/admin/backup/presentation/screens/backup_screen.dart';
 import 'features/admin/activity_log/presentation/screens/activity_log_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/permissions/presentation/screens/permissions_manager_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -54,6 +55,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/invoice', builder: (_, __) => const InvoiceScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/permissions', builder: (_, __) => const PermissionsManagerScreen()),
       GoRoute(path: '/admin', builder: (_, __) => const AdminScreen(), routes: [
         GoRoute(path: 'database', builder: (_, __) => const DatabaseManagerScreen()),
         GoRoute(path: 'manage-products', builder: (_, __) => const ManageProductsScreen()),
