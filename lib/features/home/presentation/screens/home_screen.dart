@@ -168,7 +168,7 @@ class HomeScreen extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _actionBtn(context, 'فاتورة', Icons.add_receipt_rounded, Colors.blue, () => context.push('/invoice')),
+                _actionBtn(context, 'فاتورة', Icons.receipt_long, Colors.blue, () => context.push('/invoice')),
                 _actionBtn(context, 'منتج', Icons.add_box_outlined, Colors.purple, () => context.push('/admin/manage-products')),
                 _actionBtn(context, 'عميل', Icons.person_add_alt, Colors.teal, () => context.push('/admin/customers')),
                 _actionBtn(context, 'تقرير', Icons.analytics_outlined, Colors.indigo, () => context.push('/admin/reports')),
