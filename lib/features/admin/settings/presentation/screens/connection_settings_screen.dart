@@ -232,7 +232,7 @@ class _ConnectionSettingsScreenState
   Future<void> _checkPermissions() async {
     _permissionResults.clear();
 
-    final internetStatus = await Permission.internet.status;
+    final internetStatus = await Permission.phone.status;
     final storageStatus = await Permission.storage.status;
     final notificationStatus = await Permission.notification.status;
 
@@ -262,8 +262,8 @@ class _ConnectionSettingsScreenState
     buffer.writeln('📅 التاريخ والوقت: ${now.toString()}');
     buffer.writeln('');
     buffer.writeln('📌 معلومات الجهاز والتطبيق:');
-    buffer.writeln('   $deviceInfo');
-    buffer.writeln('   $appInfo');
+    buffer.writeln('   ${_deviceInfo}');
+    buffer.writeln('   ${_appInfo}');
     buffer.writeln('');
     buffer.writeln('🌐 حالة الشبكة:');
     buffer.writeln('   الإنترنت: ${_hasInternet ? 'متصل' : 'غير متصل'}');
