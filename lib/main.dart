@@ -15,24 +15,27 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // مسح الإعدادات القديمة التي تسبب تعارض الرابط
   await _clearOldSettings();
-
-  // طلب جميع الصلاحيات المطلوبة (ستظهر نوافذ منبثقة)
   await _requestAllPermissions();
 
-  // فحص وجود إنترنت فعلي
   final hasInternet = await _checkInternet();
   if (!hasInternet) {
-    runApp(const NoInternetApp());
+    runApp(const ProviderScope(child: NoInternetApp()));
     return;
   }
 
-  await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
-  await Hive.initFlutter();
-  await LocalStorageService.init();
-  await LocalNotificationService.initialize(navKey: navigatorKey);
+  try {
+    await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
+  } catch (_) {}
+  try {
+    await Hive.initFlutter();
+  } catch (_) {}
+  try {
+    await LocalStorageService.init();
+  } catch (_) {}
+  try {
+    await LocalNotificationService.initialize(navKey: navigatorKey);
+  } catch (_) {}
 
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -41,8 +44,6 @@ Future<void> _clearOldSettings() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('custom_supabase_url');
   await prefs.remove('custom_supabase_key');
-  await prefs.remove('custom_supabase_schema');
-  await prefs.remove('custom_test_table');
 }
 
 Future<void> _requestAllPermissions() async {
@@ -50,6 +51,8 @@ Future<void> _requestAllPermissions() async {
   await Permission.location.request();
   await Permission.camera.request();
   await Permission.notification.request();
+  // للتوافق مع أندرويد 13+
+  if (await Permission.photos.isDenied) await Permission.photos.request();
 }
 
 Future<bool> _checkInternet() async {
@@ -59,50 +62,23 @@ Future<bool> _checkInternet() async {
 
 class NoInternetApp extends StatelessWidget {
   const NoInternetApp({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text(
-                  'لا يوجد اتصال بالإنترنت',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'يرجى التحقق من اتصال الشبكة وإعادة تشغيل التطبيق',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => exit(0),
-                  child: const Text('إعادة المحاولة'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+    home: Scaffold(body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Icon(Icons.wifi_off, size: 64), const SizedBox(height: 16),
+      const Text('لا يوجد اتصال بالإنترنت'), const SizedBox(height: 24),
+      ElevatedButton(onPressed: () => exit(0), child: const Text('إعادة المحاولة'))
+    ]))),
+  );
 }
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
-      title: 'محلات بن عبيد التجارية',
+      title: 'محلات بن عبيد',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(primaryColor: const Color(0xFF0F3BBF)),
       routerConfig: router,
