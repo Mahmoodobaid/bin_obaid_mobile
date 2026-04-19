@@ -254,16 +254,22 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildFullDrawer(BuildContext context, WidgetRef ref, user, bool isAdmin, bool isDelivery) {
     return Drawer(
       child: Container(
-        color: const Color(0xFFF8F9FA),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Colors.grey.shade50, Colors.white],
+          ),
+        ),
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             _buildDrawerHeader(user),
-            _drawerTile(Icons.dashboard, 'لوحة التحكم', () => context.go('/home')),
+            _drawerTile(Icons.dashboard, 'لوحة التحكم', () => context.go('/home'), isSelected: true),
             _drawerTile(Icons.inventory, 'المخازن والأصناف', () => context.push('/catalog')),
             _drawerTile(Icons.receipt_long, 'الفواتير والمبيعات', () => context.push('/admin/invoices')),
             if (isAdmin || isDelivery) ...[
-              const Divider(),
+              const Divider(height: 32, thickness: 1.5),
               _buildExpandableSection('إدارة المخزون والمنتجات', [
                 _drawerTile(Icons.edit_note, 'إدارة المنتجات', () => context.push('/admin/manage-products')),
                 _drawerTile(Icons.import_export, 'استيراد من Excel', () => context.push('/import')),
@@ -276,7 +282,7 @@ class HomeScreen extends ConsumerWidget {
               ]),
             ],
             if (isAdmin) ...[
-              const Divider(),
+              const Divider(height: 32, thickness: 1.5),
               _buildExpandableSection('لوحة تحكم المدير', [
                 _drawerTile(Icons.admin_panel_settings, 'لوحة المدير', () => context.go('/admin')),
                 _drawerTile(Icons.storage, 'قاعدة البيانات', () => context.push('/admin/database')),
@@ -297,15 +303,16 @@ class HomeScreen extends ConsumerWidget {
               ]),
             ],
             if (isDelivery) ...[
-              const Divider(),
+              const Divider(height: 32, thickness: 1.5),
               _drawerTile(Icons.delivery_dining, 'طلبات التوصيل', () => context.go('/delivery')),
             ],
-            const Divider(),
+            const Divider(height: 32, thickness: 1.5),
             _drawerSectionTitle('الحساب'),
             _drawerTile(Icons.person, 'الملف الشخصي', () => context.push('/profile')),
             _drawerTile(Icons.settings, 'الإعدادات', () => context.push('/settings')),
             _drawerTile(Icons.security, 'مركز الصلاحيات', () => context.push('/permissions')),
             _drawerTile(Icons.exit_to_app, 'تسجيل الخروج', () => _showExitDialog(context, ref, user), color: Colors.red),
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -314,14 +321,21 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildExpandableSection(String title, List<Widget> items) {
     return ExpansionTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1A2E))),
       children: items,
+      initiallyExpanded: true,
     );
   }
 
   Widget _buildDrawerHeader(user) {
     return DrawerHeader(
-      decoration: const BoxDecoration(color: Color(0xFF0D1B2A)),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -334,18 +348,36 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _drawerTile(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+  Widget _drawerTile(IconData icon, String title, VoidCallback onTap, {Color? color, bool isSelected = false}) {
+    final Color iconColor = color ?? const Color(0xFF0F3BBF);
     return ListTile(
-      leading: Icon(icon, color: color ?? const Color(0xFF1B263B)),
-      title: Text(title, style: TextStyle(color: color ?? const Color(0xFF1B263B), fontWeight: FontWeight.w500)),
+      leading: Icon(icon, color: iconColor, size: 24),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? iconColor : const Color(0xFF1A1A2E),
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 15,
+        ),
+      ),
       onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      hoverColor: iconColor.withOpacity(0.1),
     );
   }
 
   Widget _drawerSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xFF0F3BBF),
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 
