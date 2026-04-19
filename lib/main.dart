@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,13 +16,13 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // مسح الإعدادات القديمة
+  // مسح الإعدادات القديمة التي تسبب تعارض الرابط
   await _clearOldSettings();
 
-  // طلب الصلاحيات
+  // طلب جميع الصلاحيات المطلوبة (ستظهر نوافذ منبثقة)
   await _requestAllPermissions();
 
-  // فحص الاتصال بالإنترنت
+  // فحص وجود إنترنت فعلي
   final hasInternet = await _checkInternet();
   if (!hasInternet) {
     runApp(const NoInternetApp());
@@ -40,6 +41,8 @@ Future<void> _clearOldSettings() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('custom_supabase_url');
   await prefs.remove('custom_supabase_key');
+  await prefs.remove('custom_supabase_schema');
+  await prefs.remove('custom_test_table');
 }
 
 Future<void> _requestAllPermissions() async {
@@ -80,10 +83,7 @@ class NoInternetApp extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () {
-                    // إعادة تشغيل التطبيق
-                    exit(0);
-                  },
+                  onPressed: () => exit(0),
                   child: const Text('إعادة المحاولة'),
                 ),
               ],
