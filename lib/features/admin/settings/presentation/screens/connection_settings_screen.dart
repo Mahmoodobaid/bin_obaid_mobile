@@ -18,59 +18,53 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
   final _urlController = TextEditingController();
   final _keyController = TextEditingController();
   bool _isLoading = false;
-  String _statusMessage = 'نظام التشخيص جاهز';
+  String _connectionStatus = 'جاهز للفحص الشامل';
   Color _statusColor = Colors.grey;
-  List<_LogEntry> _logs = [];
+  List<String> _diagnosticsLogs = [];
   bool _isServiceRole = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadSavedSettings();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadSavedSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _urlController.text = prefs.getString('custom_supabase_url') ?? AppConfig.supabaseUrl;
       _keyController.text = prefs.getString('custom_supabase_key') ?? AppConfig.supabaseAnonKey;
-      _checkKeyType(_keyController.text);
+      _isServiceRole = _keyController.text.contains("service_role");
     });
   }
 
-  void _checkKeyType(String val) => setState(() => _isServiceRole = val.contains("service_role"));
-
-  void _addLog(String message, Color color) {
+  void _updateLogs(String message) {
     if (mounted) {
-      setState(() => _logs.insert(0, _LogEntry(message, color, DateTime.now())));
+      setState(() {
+        final timestamp = "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}";
+        _diagnosticsLogs.insert(0, "$timestamp - $message");
+      });
     }
   }
 
-  Future<void> _runFullDiagnostics() async {
+  Future<void> _testConnection() async {
     setState(() {
       _isLoading = true;
-      _logs = [];
-      _statusMessage = 'جاري الفحص الشامل...';
+      _diagnosticsLogs = [];
+      _connectionStatus = 'جاري الفحص...';
       _statusColor = Colors.blue;
     });
 
     try {
-      _addLog("📡 فحص الاتصال بالشبكة المحلية...", Colors.blue);
+      _updateLogs("📡 فحص الاتصال بالإنترنت...");
       var connectivity = await Connectivity().checkConnectivity();
-      if (connectivity == ConnectivityResult.none) throw "الجهاز غير متصل بأي شبكة!";
-      _addLog("✅ متصل بالشبكة بنجاح.", Colors.green);
+      if (connectivity == ConnectivityResult.none) throw "لا يوجد اتصال بالشبكة.";
 
-      _addLog("🌍 فحص الوصول للإنترنت العالمي...", Colors.blue);
-      final dns = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 5));
-      if (dns.isEmpty) throw "لا يوجد وصول للإنترنت.";
-      _addLog("✅ الإنترنت متاح.", Colors.green);
+      _updateLogs("🌍 فحص الوصول لسيرفرات جوجل (DNS)...");
+      final dnsTest = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 5));
+      if (dnsTest.isEmpty) throw "الشبكة متصلة ولكن لا يوجد إنترنت.";
 
-      _addLog("🔍 فحص DNS للسيرفر الخاص بك...", Colors.blue);
-      Uri uri = Uri.parse(_urlController.text.trim());
-      await InternetAddress.lookup(uri.host).timeout(const Duration(seconds: 5));
-      _addLog("✅ تم العثور على عنوان السيرفر.", Colors.green);
-
-      _addLog("🔑 اختبار مفتاح API واستجابة الخادم...", Colors.blue);
+      _updateLogs("🔑 فحص استجابة سيرفر Supabase...");
       final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 15)));
       final response = await dio.get('${_urlController.text.trim()}/rest/v1/', options: Options(headers: {
         'apikey': _keyController.text.trim(),
@@ -78,16 +72,16 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
       }));
 
       if (response.statusCode == 200) {
-        _addLog("🚀 تم الاتصال بنجاح! السيرفر يستجيب بشكل مثالي.", Colors.green);
+        _updateLogs("✅ تم الاتصال بنجاح! السيرفر يعمل.");
         setState(() {
-          _statusMessage = "تم الاتصال بنجاح ✅";
+          _connectionStatus = "متصل بنجاح ✅";
           _statusColor = Colors.green;
         });
       }
     } catch (e) {
-      _addLog("❌ فشل التشخيص: $e", Colors.red);
+      _updateLogs("❌ خطأ: $e");
       setState(() {
-        _statusMessage = "فشل في الاتصال ❌";
+        _connectionStatus = "فشل الاتصال ❌";
         _statusColor = Colors.red;
       });
     } finally {
@@ -95,11 +89,15 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('custom_supabase_url', _urlController.text.trim());
     await prefs.setString('custom_supabase_key', _keyController.text.trim());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الإعدادات بنجاح ✅')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حفظ الإعدادات بنجاح ✅')),
+      );
+    }
   }
 
   @override
@@ -107,29 +105,90 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('مهندس الاتصال الذكي'), centerTitle: true, elevation: 0),
+        appBar: AppBar(
+          title: const Text('مهندس الاتصال الاحترافي'),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.blue.shade800, Colors.blue.shade500]),
+            ),
+          ),
+        ),
         body: Container(
-          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Theme.of(context).primaryColor.withOpacity(0.1), Colors.white])),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+          ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                _buildCard("إعدادات السيرفر", [
-                  TextField(controller: _urlController, decoration: const InputDecoration(labelText: 'رابط Supabase URL', prefixIcon: Icon(Icons.link))),
-                  const SizedBox(height: 15),
-                  TextField(controller: _keyController, maxLines: 2, onChanged: _checkKeyType, decoration: const InputDecoration(labelText: 'مفتاح الـ API', prefixIcon: Icon(Icons.vpn_key))),
-                  if (_isServiceRole) const Padding(padding: EdgeInsets.only(top: 8), child: Text("🛡️ وضع مدير النظام (Service Role) نشط", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12))),
-                ]),
-                const SizedBox(height: 25),
-                Row(
-                  children: [
-                    Expanded(child: ElevatedButton.icon(onPressed: _isLoading ? null : _runFullDiagnostics, icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.bolt), label: const Text('بدء التشخيص'), style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)))),
-                    const SizedBox(width: 12),
-                    Expanded(child: ElevatedButton.icon(onPressed: _save, icon: const Icon(Icons.save), label: const Text('حفظ البيانات'), style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15)))),
+                _buildCard(
+                  "بيانات السيرفر",
+                  [
+                    TextField(
+                      controller: _urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'رابط Supabase URL',
+                        prefixIcon: Icon(Icons.cloud_queue),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: _keyController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'مفتاح API (Anon Key)',
+                        prefixIcon: Icon(Icons.security),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (_isServiceRole)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text("⚠️ تنبيه: أنت تستخدم مفتاح مدير النظام", 
+                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 25),
-                _buildLogsPanel(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : _testConnection,
+                        icon: _isLoading 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.network_check),
+                        label: const Text('اختبار الاتصال'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _saveSettings,
+                        icon: const Icon(Icons.save),
+                        label: const Text('حفظ البيانات'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+                _buildDiagnosticsPanel(),
               ],
             ),
           ),
@@ -140,39 +199,59 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
 
   Widget _buildCard(String title, List<Widget> children) {
     return Card(
-      elevation: 4,
+      elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-        const Divider(),
-        ...children,
-      ])),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+            const Divider(),
+            const SizedBox(height: 10),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildLogsPanel() {
+  Widget _buildDiagnosticsPanel() {
     return Container(
       height: 300,
       width: double.infinity,
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: _statusColor.withOpacity(0.5))),
-      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: _statusColor.withOpacity(0.5), width: 2),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+      ),
+      padding: const EdgeInsets.all(15),
       child: Column(
         children: [
-          Row(children: [Icon(Icons.terminal, color: _statusColor), const SizedBox(width: 8), Text(_statusMessage, style: TextStyle(color: _statusColor, fontWeight: FontWeight.bold))]),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("تقرير التشخيص", style: TextStyle(fontWeight: FontWeight.bold, color: _statusColor)),
+              Icon(Icons.monitor_heart, color: _statusColor),
+            ],
+          ),
           const Divider(),
-          Expanded(child: _logs.isEmpty ? const Center(child: Text("بانتظار بدء الفحص...")) : ListView.builder(itemCount: _logs.length, itemBuilder: (context, i) {
-            final log = _logs[i];
-            return Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text("${log.time.hour}:${log.time.minute.toString().padLeft(2, '0')} - ${log.message}", style: TextStyle(color: log.color, fontSize: 12, fontFamily: 'monospace')));
-          })),
+          Center(child: Text(_connectionStatus, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _statusColor))),
+          const SizedBox(height: 10),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _diagnosticsLogs.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(_diagnosticsLogs[index], style: const TextStyle(fontSize: 13, color: Colors.black87, fontFamily: 'monospace')),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
-}
-
-class _LogEntry {
-  final String message;
-  final Color color;
-  final DateTime time;
-  _LogEntry(this.message, this.color, this.time);
 }
