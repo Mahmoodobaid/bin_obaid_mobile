@@ -59,3 +59,7 @@ flutter:
   assets:
     - assets/images/default.png
     - assets/images/
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+  shared_preferences: ^2.2.2
+  flutter_riverpod: ^2.4.9
