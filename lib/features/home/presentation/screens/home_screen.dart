@@ -184,10 +184,10 @@ class HomeScreen extends ConsumerWidget {
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             children: [
-              StatCard(title: 'المبيعات', value: '${s['totalSales']} ريال', icon: Icons.monetization_on, color: Colors.green),
-              StatCard(title: 'الطلبات', value: '${s['newOrders']}', icon: Icons.shopping_cart, color: Colors.blue),
-              StatCard(title: 'الفواتير', value: '${s['dailyInvoices']}', icon: Icons.receipt, color: Colors.orange),
-              StatCard(title: 'النواقص', value: '${s['lowStock']}', icon: Icons.warning, color: Colors.red),
+              StatCard(title: 'المبيعات', value: '${s['totalSales'] ?? 0} ريال', icon: Icons.monetization_on, color: Colors.green),
+              StatCard(title: 'الطلبات', value: '${s['newOrders'] ?? 0}', icon: Icons.shopping_cart, color: Colors.blue),
+              StatCard(title: 'الفواتير', value: '${s['dailyInvoices'] ?? 0}', icon: Icons.receipt, color: Colors.orange),
+              StatCard(title: 'النواقص', value: '${s['lowStock'] ?? 0}', icon: Icons.warning, color: Colors.red),
             ],
           ),
           const SizedBox(height: 25),
@@ -205,7 +205,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 25),
-          if (s['lowStock'] > 0) _buildStockAlert(context, s['lowStock']),
+          if (s['lowStock'] ?? 0 > 0) _buildStockAlert(context, s['lowStock'] ?? 0),
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
