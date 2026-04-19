@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:ui' as ui;
 import '../../../../core/widgets/stat_card.dart';
 import '../providers/stats_provider.dart';
@@ -9,146 +10,122 @@ import '../widgets/recent_invoice_tile.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../services/backup_service.dart';
 
+final connectivityProvider = StreamProvider<ConnectivityResult>((ref) {
+  return Connectivity().onConnectivityChanged.map((list) => list.first);
+});
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    try {
-      final auth = ref.watch(authProvider);
-      final user = auth.currentUser;
-      final isAdmin = auth.isAdmin;
-      final isDelivery = auth.isDelivery;
-      final stats = ref.watch(statsProvider);
-      final now = DateTime.now();
-      final greeting = _getGreeting(now.hour);
-      final isOffline = auth.isOfflineMode;
+    final auth = ref.watch(authProvider);
+    final user = auth.currentUser;
+    final isAdmin = auth.isAdmin;
+    final isDelivery = auth.isDelivery;
+    final stats = ref.watch(statsProvider);
+    final now = DateTime.now();
+    final greeting = _getGreeting(now.hour);
+    final connectivity = ref.watch(connectivityProvider);
+    final isOffline = connectivity == ConnectivityResult.none;
 
-      return WillPopScope(
-        onWillPop: () => _showExitDialog(context, ref, user),
-        child: Directionality(
-          textDirection: ui.TextDirection.rtl,
-          child: Scaffold(
-            body: CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  expandedHeight: 230.0,
-                  floating: true,
-                  pinned: true,
-                  backgroundColor: const Color(0xFF0D1B2A),
-                  flexibleSpace: FlexibleSpaceBar(
-                    titlePadding: const EdgeInsets.only(right: 16, bottom: 16),
-                    title: Row(
-                      mainAxisSize: MainAxisSize.min,
+    return WillPopScope(
+      onWillPop: () => _showExitDialog(context, ref, user),
+      child: Directionality(
+        textDirection: ui.TextDirection.rtl,
+        child: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 230.0,
+                floating: true,
+                pinned: true,
+                backgroundColor: const Color(0xFF0D1B2A),
+                flexibleSpace: FlexibleSpaceBar(
+                  titlePadding: const EdgeInsets.only(right: 16, bottom: 16),
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.white24,
+                        backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
+                        child: user?.avatarUrl == null ? const Icon(Icons.person, size: 16, color: Colors.white) : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        user?.fullName ?? 'مدير النظام',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                        colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
+                      ),
+                    ),
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 20, top: 50),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$greeting،', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                            Text(user?.fullName ?? 'محمود عبيد', 
+                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            _buildStatusBadge(isOffline),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none, color: Colors.white),
+                    onPressed: () => context.push('/admin/notifications'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () => _showExitDialog(context, ref, user),
+                  ),
+                ],
+              ),
+              if (isOffline)
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    color: Colors.orange.shade900,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.white24,
-                          backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
-                          child: user?.avatarUrl == null ? const Icon(Icons.person, size: 16, color: Colors.white) : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          user?.fullName ?? 'مدير النظام',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
+                        Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                        SizedBox(width: 10),
+                        Text('وضع العمل بدون اتصال نشط حالياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    background: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topRight,
-                          end: Alignment.bottomLeft,
-                          colors: [Color(0xFF0D1B2A), Color(0xFF1B263B)],
-                        ),
-                      ),
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 20, top: 50),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('$greeting،', style: const TextStyle(color: Colors.white70, fontSize: 16)),
-                              Text(user?.fullName ?? 'محمود عبيد', 
-                                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 12),
-                              _buildStatusBadge(isOffline),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  actions: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none, color: Colors.white),
-                      onPressed: () => context.push('/admin/notifications'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      onPressed: () => _showExitDialog(context, ref, user),
-                    ),
-                  ],
-                ),
-                if (isOffline)
-                  SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      color: Colors.orange.shade900,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off, color: Colors.white, size: 18),
-                          SizedBox(width: 10),
-                          Text('وضع العمل بدون اتصال نشط حالياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: stats.when(
-                    data: (data) => _buildMainContent(context, data, isAdmin, isDelivery),
-                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator())),
-                    error: (e, _) => _buildErrorWidget(ref, e),
                   ),
                 ),
-              ],
-            ),
-            drawer: _buildFullDrawer(context, ref, user, isAdmin, isDelivery),
+              SliverToBoxAdapter(
+                child: stats.when(
+                  data: (data) => _buildMainContent(context, data, isAdmin, isDelivery),
+                  loading: () => const Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator())),
+                  error: (e, _) => _buildErrorWidget(ref, e),
+                ),
+              ),
+            ],
           ),
+          drawer: _buildFullDrawer(context, ref, user, isAdmin, isDelivery),
         ),
-      );
-    } catch (e, stack) {
-      // معالج الأخطاء: يعرض الخطأ بدلاً من الشاشة البيضاء
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                const Text('حدث خطأ غير متوقع في الشاشة الرئيسية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('$e', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    // محاولة إعادة التحميل
-                    context.go('/login');
-                  },
-                  child: const Text('العودة لتسجيل الدخول'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
-  Widget _buildStatusBadge(bool isOffline) {
+  static Widget _buildStatusBadge(bool isOffline) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -205,7 +182,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 25),
-          if (s['lowStock'] ?? 0 > 0) _buildStockAlert(context, s['lowStock'] ?? 0),
+          if ((s['lowStock'] ?? 0) > 0) _buildStockAlert(context, s['lowStock']),
           const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -285,22 +262,60 @@ class HomeScreen extends ConsumerWidget {
             _drawerTile(Icons.dashboard, 'لوحة التحكم', () => context.go('/home')),
             _drawerTile(Icons.inventory, 'المخازن والأصناف', () => context.push('/catalog')),
             _drawerTile(Icons.receipt_long, 'الفواتير والمبيعات', () => context.push('/admin/invoices')),
+            if (isAdmin || isDelivery) ...[
+              const Divider(),
+              _buildExpandableSection('إدارة المخزون والمنتجات', [
+                _drawerTile(Icons.edit_note, 'إدارة المنتجات', () => context.push('/admin/manage-products')),
+                _drawerTile(Icons.import_export, 'استيراد من Excel', () => context.push('/import')),
+                _drawerTile(Icons.file_download, 'تصدير المنتجات', () => context.push('/admin/export')),
+              ]),
+              _buildExpandableSection('العملاء والمبيعات', [
+                _drawerTile(Icons.people, 'قائمة العملاء', () => context.push('/admin/customers')),
+                _drawerTile(Icons.shopping_bag, 'الطلبات', () => context.push('/admin/orders')),
+                _drawerTile(Icons.receipt_long, 'قائمة الفواتير', () => context.push('/admin/invoices')),
+              ]),
+            ],
             if (isAdmin) ...[
               const Divider(),
-              _drawerSectionTitle('إدارة الموارد البشرية'),
-              _drawerTile(Icons.people, 'العملاء', () => context.push('/admin/customers')),
-              _drawerTile(Icons.engineering, 'الموظفين والصلاحيات', () => context.push('/admin/roles-permissions')),
+              _buildExpandableSection('لوحة تحكم المدير', [
+                _drawerTile(Icons.admin_panel_settings, 'لوحة المدير', () => context.go('/admin')),
+                _drawerTile(Icons.storage, 'قاعدة البيانات', () => context.push('/admin/database')),
+                _drawerTile(Icons.notifications, 'إدارة الإشعارات', () => context.push('/admin/notifications')),
+              ]),
+              _buildExpandableSection('التقارير والتحليلات', [
+                _drawerTile(Icons.analytics, 'التقارير', () => context.push('/admin/reports')),
+                _drawerTile(Icons.trending_up, 'تحليلات متقدمة', () => context.push('/admin/advanced-analytics')),
+              ]),
+              _buildExpandableSection('الإعدادات المتقدمة', [
+                _drawerTile(Icons.security, 'الصلاحيات والأدوار', () => context.push('/admin/roles-permissions')),
+                _drawerTile(Icons.tune, 'تفضيلات النظام', () => context.push('/admin/system-preferences')),
+                _drawerTile(Icons.link, 'إعدادات الاتصال', () => context.push('/admin/connection-settings')),
+              ]),
+              _buildExpandableSection('النظام والصيانة', [
+                _drawerTile(Icons.backup, 'النسخ الاحتياطي', () => context.push('/admin/backup')),
+                _drawerTile(Icons.history, 'سجل النشاطات', () => context.push('/admin/activity-log')),
+              ]),
+            ],
+            if (isDelivery) ...[
               const Divider(),
-              _drawerSectionTitle('النظام والصيانة'),
-              _drawerTile(Icons.backup, 'النسخ الاحتياطي السحابي', () => context.push('/admin/backup')),
-              _drawerTile(Icons.settings, 'إعدادات النظام', () => context.push('/settings')),
-              _drawerTile(Icons.security, 'مركز الصلاحيات', () => context.push('/permissions')),
+              _drawerTile(Icons.delivery_dining, 'طلبات التوصيل', () => context.go('/delivery')),
             ],
             const Divider(),
+            _drawerSectionTitle('الحساب'),
+            _drawerTile(Icons.person, 'الملف الشخصي', () => context.push('/profile')),
+            _drawerTile(Icons.settings, 'الإعدادات', () => context.push('/settings')),
+            _drawerTile(Icons.security, 'مركز الصلاحيات', () => context.push('/permissions')),
             _drawerTile(Icons.exit_to_app, 'تسجيل الخروج', () => _showExitDialog(context, ref, user), color: Colors.red),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildExpandableSection(String title, List<Widget> items) {
+    return ExpansionTile(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      children: items,
     );
   }
 
