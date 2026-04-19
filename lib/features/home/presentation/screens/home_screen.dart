@@ -30,9 +30,8 @@ class HomeScreen extends ConsumerWidget {
         child: Scaffold(
           body: CustomScrollView(
             slivers: [
-              // الهيدر الاحترافي المتغير
               SliverAppBar(
-                expandedHeight: 220.0,
+                expandedHeight: 230.0,
                 floating: true,
                 pinned: true,
                 backgroundColor: const Color(0xFF0D1B2A),
@@ -90,8 +89,6 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-
-              // تنبيه الأوفلاين
               if (isOffline)
                 SliverToBoxAdapter(
                   child: Container(
@@ -107,8 +104,6 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-
-              // المحتوى الرئيسي
               SliverToBoxAdapter(
                 child: stats.when(
                   data: (data) => _buildMainContent(context, data, isAdmin, isDelivery),
@@ -123,8 +118,6 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
-
-  // --- أدوات البناء الداخلية ---
 
   Widget _buildStatusBadge(bool isOffline) {
     return Container(
@@ -152,7 +145,6 @@ class HomeScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // كروت الإحصائيات
           const Text('نظرة عامة اليوم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           GridView.count(
@@ -169,10 +161,7 @@ class HomeScreen extends ConsumerWidget {
               StatCard(title: 'النواقص', value: '${s['lowStock']}', icon: Icons.warning, color: Colors.red),
             ],
           ),
-
           const SizedBox(height: 25),
-          
-          // الوصول السريع للمدير والموظفين
           const Text('إجراءات سريعة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -186,15 +175,9 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 25),
-
-          // تنبيه النواقص
           if (s['lowStock'] > 0) _buildStockAlert(context, s['lowStock']),
-
           const SizedBox(height: 25),
-
-          // قائمة أحدث الفواتير
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -208,8 +191,7 @@ class HomeScreen extends ConsumerWidget {
             amount: 1500.0 + (index * 200),
             date: DateTime.now(),
           )),
-          
-          const SizedBox(height: 100), // مساحة للسكرول
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -263,7 +245,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // القائمة الجانبية الكاملة
   Widget _buildFullDrawer(BuildContext context, WidgetRef ref, user, bool isAdmin, bool isDelivery) {
     return Drawer(
       child: Container(
@@ -275,19 +256,17 @@ class HomeScreen extends ConsumerWidget {
             _drawerTile(Icons.dashboard, 'لوحة التحكم', () => context.go('/home')),
             _drawerTile(Icons.inventory, 'المخازن والأصناف', () => context.push('/catalog')),
             _drawerTile(Icons.receipt_long, 'الفواتير والمبيعات', () => context.push('/admin/invoices')),
-            
             if (isAdmin) ...[
               const Divider(),
               _drawerSectionTitle('إدارة الموارد البشرية'),
               _drawerTile(Icons.people, 'العملاء', () => context.push('/admin/customers')),
               _drawerTile(Icons.engineering, 'الموظفين والصلاحيات', () => context.push('/admin/roles-permissions')),
-              
               const Divider(),
               _drawerSectionTitle('النظام والصيانة'),
               _drawerTile(Icons.backup, 'النسخ الاحتياطي السحابي', () => context.push('/admin/backup')),
               _drawerTile(Icons.settings, 'إعدادات النظام', () => context.push('/settings')),
+              _drawerTile(Icons.security, 'مركز الصلاحيات', () => context.push('/permissions')),
             ],
-            
             const Divider(),
             _drawerTile(Icons.exit_to_app, 'تسجيل الخروج', () => _showExitDialog(context, ref, user), color: Colors.red),
           ],
@@ -326,8 +305,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // --- الوظائف المساعدة ---
-
   String _getGreeting(int hour) {
     if (hour < 12) return 'صباح الخير';
     if (hour < 18) return 'مساء الخير';
@@ -350,7 +327,6 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
-
     if (result == true) {
       await BackupService.createBackup(userRole: user?.role ?? 'admin');
       ref.read(authProvider.notifier).logout();
