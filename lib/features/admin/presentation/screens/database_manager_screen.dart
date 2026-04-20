@@ -4,31 +4,35 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:ui' as ui;
 
 // -------------------------------------------------------------------------
-// 1. الإعدادات السحابية (نظام بن عبيد - الوصول المطلق)
+// 1. الإعدادات المركزية (مفتاح الإدارة المطلقة)
 // -------------------------------------------------------------------------
-class BinObaidConfig {
-  static const String url = "https://ackxfnznrjufhppaznjd.supabase.co";
-  // مفتاح Service Role لضمان الصلاحيات الكاملة وتجاوز الـ RLS
-  static const String serviceKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFja3hmbnpucmp1ZmhwcGF6bmpkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTIyMTIzOCwiZXhwIjoyMDkwNzk3MjM4fQ.QFuG1ZsClKJjAefoY8HDjY6TzyA3RMmM_6U9rl9FHFY";
+class AppConfig {
+  static const String supabaseUrl = 'https://ackxfnznrjufhppaznjd.supabase.co';
+  static const String supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFja3hmbnpucmp1ZmhwcGF6bmpkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTIyMTIzOCwiZXhwIjoyMDkwNzk3MjM4fQ.QFuG1ZsClKJjAefoY8HDjY6TzyA3RMmM_6U9rl9FHFY';
 }
 
 // -------------------------------------------------------------------------
-// 2. محرك إدارة الحالة والتقارير الذكية
+// 2. محرك إدارة البيانات والحالة (Database Engine)
 // -------------------------------------------------------------------------
 class DatabaseState {
   final List<String> tables;
   final List<Map<String, dynamic>> data;
   final bool isLoading;
-  final String? detailedReport;
+  final String? errorReport;
 
-  DatabaseState({this.tables = const [], this.data = const [], this.isLoading = false, this.detailedReport});
+  DatabaseState({
+    this.tables = const [], 
+    this.data = const [], 
+    this.isLoading = false, 
+    this.errorReport
+  });
 
-  DatabaseState copyWith({List<String>? tables, List<Map<String, dynamic>>? data, bool? isLoading, String? detailedReport}) {
+  DatabaseState copyWith({List<String>? tables, List<Map<String, dynamic>>? data, bool? isLoading, String? errorReport}) {
     return DatabaseState(
       tables: tables ?? this.tables,
       data: data ?? this.data,
       isLoading: isLoading ?? this.isLoading,
-      detailedReport: detailedReport,
+      errorReport: errorReport,
     );
   }
 }
@@ -36,36 +40,34 @@ class DatabaseState {
 class DatabaseNotifier extends StateNotifier<DatabaseState> {
   DatabaseNotifier() : super(DatabaseState());
 
-  final _adminClient = SupabaseClient(BinObaidConfig.url, BinObaidConfig.serviceKey);
+  // إنشاء عميل مباشر بصلاحيات Service Role لتجاوز الـ RLS
+  final _client = SupabaseClient(AppConfig.supabaseUrl, AppConfig.supabaseServiceKey);
 
-  Future<void> initSystem() async {
+  Future<void> initializeSystem() async {
     state = state.copyWith(isLoading: true);
-    const activeTables = ['products', 'users', 'pending_users', 'quotes', 'quote_items', 'logs', 'settings', 'sync_queue'];
-    await Future.delayed(const Duration(milliseconds: 600));
+    // تعريف الجداول النشطة في نظام بن عبيد
+    const activeTables = ['products', 'users', 'quotes', 'quote_items', 'logs', 'settings', 'sync_queue'];
+    await Future.delayed(const Duration(milliseconds: 500));
     state = state.copyWith(tables: activeTables, isLoading: false);
   }
 
-  Future<void> syncTable(String tableName) async {
-    state = state.copyWith(isLoading: true, data: [], detailedReport: null);
+  Future<void> fetchTableData(String tableName) async {
+    state = state.copyWith(isLoading: true, data: [], errorReport: null);
     try {
-      final response = await _adminClient
+      final response = await _client
           .from(tableName)
           .select()
           .order('created_at', ascending: false)
-          .limit(500);
+          .limit(200);
       
       state = state.copyWith(data: List<Map<String, dynamic>>.from(response), isLoading: false);
     } catch (e) {
-      // تحليل الخطأ بناءً على تقرير التشخيص
-      String report = "🛠 تشخيص العطل:\n";
-      if (e.toString().contains("Failed host lookup")) {
-        report += "• مشكلة في الـ DNS أو الإنترنت (تعذر الوصول للسيرفر).";
-      } else if (e.toString().contains("401")) {
-        report += "• خطأ في الصلاحيات (Key Unauthorized).";
-      } else {
-        report += "• خطأ تقني غير متوقع: ${e.toString()}";
-      }
-      state = state.copyWith(isLoading: false, detailedReport: report);
+      String msg = "خطأ في الاتصال بالسحابة:\n";
+      if (e.toString().contains("Failed host lookup")) msg += "• تعذر الوصول للسيرفر (افحص الإنترنت أو الـ DNS).";
+      else if (e.toString().contains("401")) msg += "• مفتاح الصلاحيات غير صالح أو منتهي.";
+      else msg += "• تفاصيل: ${e.toString()}";
+      
+      state = state.copyWith(isLoading: false, errorReport: msg);
     }
   }
 }
@@ -73,53 +75,49 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
 final databaseProvider = StateNotifierProvider<DatabaseNotifier, DatabaseState>((ref) => DatabaseNotifier());
 
 // -------------------------------------------------------------------------
-// 3. الواجهة الرسومية (Ultra Premium UI v2.2)
+// 3. الواجهة الاحترافية (Ultra UI v2.5)
 // -------------------------------------------------------------------------
-class BinObaidPremiumScreen extends ConsumerStatefulWidget {
-  const BinObaidPremiumScreen({super.key});
+class DatabaseManagerScreen extends ConsumerStatefulWidget {
+  const DatabaseManagerScreen({super.key});
 
   @override
-  ConsumerState<BinObaidPremiumScreen> createState() => _BinObaidPremiumScreenState();
+  ConsumerState<DatabaseManagerScreen> createState() => _DatabaseManagerScreenState();
 }
 
-class _BinObaidPremiumScreenState extends ConsumerState<BinObaidPremiumScreen> {
-  String? _currentTable;
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
+class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
+  String? _selectedTable;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchTerm = '';
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration.zero, () => ref.read(databaseProvider.notifier).initSystem());
+    Future.delayed(Duration.zero, () => ref.read(databaseProvider.notifier).initializeSystem());
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(databaseProvider);
-    final size = MediaQuery.of(context).size;
-
-    final filteredData = state.data.where((row) {
-      return row.values.any((v) => v.toString().toLowerCase().contains(_query.toLowerCase()));
-    }).toList();
+    final isMobile = MediaQuery.of(context).size.width < 900;
 
     return Directionality(
       textDirection: ui.TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F172A), // Dark Navy
-        drawer: size.width <= 1000 ? Drawer(child: _buildSidebar(state, isDrawer: true)) : null,
+        backgroundColor: const Color(0xFF0F172A),
+        drawer: isMobile ? Drawer(child: _buildSideMenu(state)) : null,
         body: Row(
           children: [
-            if (size.width > 1000) _buildSidebar(state),
+            if (!isMobile) _buildSideMenu(state),
             Expanded(
               child: Column(
                 children: [
-                  _buildTopBar(),
+                  _buildHeader(isMobile),
                   Expanded(
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      child: _currentTable == null 
-                        ? _buildWelcomeHero()
-                        : _buildMainContent(filteredData, state),
+                      duration: const Duration(milliseconds: 400),
+                      child: _selectedTable == null 
+                        ? _buildDashboardHome() 
+                        : _buildDataTableArea(state),
                     ),
                   ),
                 ],
@@ -131,125 +129,126 @@ class _BinObaidPremiumScreenState extends ConsumerState<BinObaidPremiumScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildHeader(bool isMobile) {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 25),
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: const BoxDecoration(
         color: Color(0xFF1E293B),
         border: Border(bottom: BorderSide(color: Colors.white10)),
       ),
       child: Row(
         children: [
-          if (MediaQuery.of(context).size.width <= 1000)
-            IconButton(icon: const Icon(Icons.menu_open_rounded, color: Colors.blue), onPressed: () => Scaffold.of(context).openDrawer()),
-          
-          Text(_currentTable == null ? "لوحة الإدارة" : "إدارة ${_currentTable!.toUpperCase()}", 
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-          
+          if (isMobile) IconButton(icon: const Icon(Icons.menu, color: Colors.blue), onPressed: () => Scaffold.of(context).openDrawer()),
+          Text(_selectedTable == null ? "الرئيسية" : "جدول ${_selectedTable!.toUpperCase()}", 
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const Spacer(),
-          _buildSearchInput(),
+          _buildSearchBar(),
           const SizedBox(width: 15),
-          _buildActionBtn(Icons.refresh_rounded, () {
-            if (_currentTable != null) ref.read(databaseProvider.notifier).syncTable(_currentTable!);
+          _buildHeaderAction(Icons.refresh, () {
+            if (_selectedTable != null) ref.read(databaseProvider.notifier).fetchTableData(_selectedTable!);
           }),
         ],
       ),
     );
   }
 
-  Widget _buildSearchInput() {
+  Widget _buildSearchBar() {
     return Container(
-      width: 300,
-      height: 45,
-      decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12)),
+      width: 250,
+      height: 40,
+      decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8)),
       child: TextField(
-        controller: _searchController,
-        onChanged: (v) => setState(() => _query = v),
-        style: const TextStyle(color: Colors.white),
+        controller: _searchCtrl,
+        onChanged: (v) => setState(() => _searchTerm = v),
+        style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: const InputDecoration(
-          hintText: 'بحث سريع...',
+          hintText: "بحث سريع...",
           hintStyle: TextStyle(color: Colors.white24),
-          prefixIcon: Icon(Icons.search, color: Colors.blue, size: 20),
+          prefixIcon: Icon(Icons.search, size: 18, color: Colors.blue),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 10),
         ),
       ),
     );
   }
 
-  Widget _buildSidebar(DatabaseState state, {bool isDrawer = false}) {
+  Widget _buildSideMenu(DatabaseState state) {
     return Container(
-      width: 280,
+      width: 260,
       color: const Color(0xFF0B1222),
       child: Column(
         children: [
-          const SizedBox(height: 60),
-          const CircleAvatar(radius: 40, backgroundColor: Colors.blue, child: Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 45)),
-          const SizedBox(height: 15),
-          const Text('Bin Obaid Cloud', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
-          const Text('V2.2 PREMIUM', style: TextStyle(color: Colors.blue, fontSize: 10, letterSpacing: 2)),
-          const SizedBox(height: 40),
+          const SizedBox(height: 50),
+          const CircleAvatar(radius: 35, backgroundColor: Colors.blue, child: Icon(Icons.business_center, color: Colors.white, size: 35)),
+          const SizedBox(height: 10),
+          const Text("بن عبيد كـلاود", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text("ADMIN ACCESS", style: TextStyle(color: Colors.blue, fontSize: 9, letterSpacing: 2)),
+          const SizedBox(height: 30),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
               itemCount: state.tables.length,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               itemBuilder: (context, i) {
                 final table = state.tables[i];
-                final active = _currentTable == table;
-                return GestureDetector(
+                final isSelected = _selectedTable == table;
+                return ListTile(
+                  selected: isSelected,
+                  selectedTileColor: Colors.blue.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  leading: Icon(Icons.table_chart_outlined, color: isSelected ? Colors.blue : Colors.white24),
+                  title: Text(table, style: TextStyle(color: isSelected ? Colors.blue : Colors.white70, fontSize: 14)),
                   onTap: () {
-                    setState(() => _currentTable = table);
-                    ref.read(databaseProvider.notifier).syncTable(table);
-                    if (isDrawer) Navigator.pop(context);
+                    setState(() => _selectedTable = table);
+                    ref.read(databaseProvider.notifier).fetchTableData(table);
+                    if (Navigator.canPop(context)) Navigator.pop(context);
                   },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: active ? Colors.blue.withOpacity(0.1) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: active ? Colors.blue.withOpacity(0.3) : Colors.transparent),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.layers_outlined, color: active ? Colors.blue : Colors.white24),
-                        const SizedBox(width: 15),
-                        Text(table.toUpperCase(), style: TextStyle(color: active ? Colors.blue : Colors.white70, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
-                      ],
-                    ),
-                  ),
                 );
               },
             ),
           ),
+          const Divider(color: Colors.white10),
+          ListTile(
+            leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
+            title: const Text("خروج", style: TextStyle(color: Colors.redAccent)),
+            onTap: () => Navigator.pop(context),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildMainContent(List<Map<String, dynamic>> data, DatabaseState state) {
+  Widget _buildDataTableArea(DatabaseState state) {
     if (state.isLoading) return const Center(child: CircularProgressIndicator(color: Colors.blue));
-    if (state.detailedReport != null) return _buildErrorReport(state.detailedReport!);
-    if (data.isEmpty) return _buildEmpty();
+    if (state.errorReport != null) return _buildErrorView(state.errorReport!);
+    if (state.data.isEmpty) return const Center(child: Text("الجدول فارغ", style: TextStyle(color: Colors.white38)));
+
+    final filteredData = state.data.where((row) {
+      return row.values.any((v) => v.toString().toLowerCase().contains(_searchTerm.toLowerCase()));
+    }).toList();
 
     return Padding(
-      padding: const EdgeInsets.all(25),
+      padding: const EdgeInsets.all(20),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(15),
         child: Container(
           color: const Color(0xFF1E293B),
           child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: MaterialStateProperty.all(Colors.blue.withOpacity(0.05)),
-              columns: data.first.keys.map((k) => DataColumn(label: Text(k, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)))).toList(),
-              rows: data.map((row) => DataRow(
-                cells: row.values.map((v) => DataCell(
-                  Text(v?.toString() ?? "---", style: const TextStyle(color: Colors.white70))
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: MaterialStateProperty.all(Colors.blue.withOpacity(0.1)),
+                columns: filteredData.first.keys.map((key) => DataColumn(
+                  label: Text(key.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12))
                 )).toList(),
-                onSelectChanged: (_) => _showDetails(row),
-              )).toList(),
+                rows: filteredData.map((row) => DataRow(
+                  onSelectChanged: (_) => _showRecordDetails(row),
+                  cells: row.values.map((val) => DataCell(
+                    Text(val?.toString() ?? "---", style: const TextStyle(color: Colors.white70, fontSize: 13))
+                  )).toList(),
+                )).toList(),
+              ),
             ),
           ),
         ),
@@ -257,91 +256,67 @@ class _BinObaidPremiumScreenState extends ConsumerState<BinObaidPremiumScreen> {
     );
   }
 
-  Widget _buildWelcomeHero() {
+  Widget _buildDashboardHome() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.bolt_rounded, size: 100, color: Colors.blue),
+          Icon(Icons.analytics_outlined, size: 100, color: Colors.blue.withOpacity(0.3)),
           const SizedBox(height: 20),
-          const Text("مرحباً محمود علي عبيد 👋", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-          const Text("نظام الإدارة المتكامل لمؤسسة بن عبيد جاهز للعمل.", style: TextStyle(color: Colors.white38, fontSize: 16)),
+          const Text("مرحباً محمود علي عبيد", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text("اختر جدوالاً من القائمة الجانبية لبدء الإدارة", style: TextStyle(color: Colors.white38)),
           const SizedBox(height: 40),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildSimpleStat("الجداول", "8", Colors.blue),
-              const SizedBox(width: 20),
-              _buildSimpleStat("الحالة", "متصل", Colors.green),
+              _buildMiniCard("قاعدة البيانات", "نشط", Colors.green),
+              const SizedBox(width: 15),
+              _buildMiniCard("الصلاحيات", "SERVICE ROLE", Colors.orange),
             ],
-          ),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildSimpleStat(String t, String v, Color c) {
+  Widget _buildMiniCard(String title, String val, Color col) {
     return Container(
-      width: 150,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(15)),
       child: Column(
         children: [
-          Text(v, style: TextStyle(color: c, fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(t, style: const TextStyle(color: Colors.white24, fontSize: 12)),
+          Text(val, style: TextStyle(color: col, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(color: Colors.white24, fontSize: 11)),
         ],
       ),
     );
   }
 
-  Widget _buildErrorReport(String report) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(40),
-        margin: const EdgeInsets.all(40),
-        decoration: BoxDecoration(color: Colors.red.withOpacity(0.05), borderRadius: BorderRadius.circular(25)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.report_gmailerrorred_rounded, color: Colors.red, size: 80),
-            const SizedBox(height: 20),
-            const Text("تعذر جلب البيانات من السحابة", style: TextStyle(color: Colors.red, fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 15),
-            Text(report, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60, height: 1.6)),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () => ref.read(databaseProvider.notifier).syncTable(_currentTable!),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15)),
-              child: const Text("إعادة المحاولة الآن"),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return const Center(child: Text("لا توجد بيانات متاحة في هذا الجدول.", style: TextStyle(color: Colors.white38)));
-  }
-
-  void _showDetails(Map<String, dynamic> row) {
+  void _showRecordDetails(Map<String, dynamic> row) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(30),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(25),
         child: Column(
           children: [
-            Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10))),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(10))),
             const SizedBox(height: 20),
-            const Text("تفاصيل السجل", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-            const Divider(color: Colors.white10),
+            const Text("التفاصيل الكاملة للسجل", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Divider(color: Colors.white10, height: 30),
             Expanded(
               child: ListView(
-                children: row.entries.map((e) => ListTile(
-                  title: Text(e.key.toUpperCase(), style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
-                  subtitle: Text(e.value?.toString() ?? "N/A", style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                children: row.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(e.key.toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      SelectableText(e.value?.toString() ?? "لا توجد قيمة", style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                    ],
+                  ),
                 )).toList(),
               ),
             ),
@@ -351,14 +326,29 @@ class _BinObaidPremiumScreenState extends ConsumerState<BinObaidPremiumScreen> {
     );
   }
 
-  Widget _buildActionBtn(IconData icon, VoidCallback tap) {
-    return InkWell(
-      onTap: tap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: Colors.blue, size: 22),
+  Widget _buildErrorView(String err) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 60),
+          const SizedBox(height: 15),
+          Text(err, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => ref.read(databaseProvider.notifier).fetchTableData(_selectedTable!),
+            child: const Text("إعادة المحاولة"),
+          )
+        ],
       ),
+    );
+  }
+
+  Widget _buildHeaderAction(IconData icon, VoidCallback tap) {
+    return IconButton(
+      icon: Icon(icon, color: Colors.white54, size: 20),
+      onPressed: tap,
+      constraints: const BoxConstraints(),
     );
   }
 }

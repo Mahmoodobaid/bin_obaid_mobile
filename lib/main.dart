@@ -7,36 +7,35 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// استيراد ملفات مشروعك الأساسية (تأكد من وجود المسارات الصحيحة)
+// استيراد ملفات مشروع بن عبيد (تأكد من مطابقة المسارات في مشروعك)
 import 'app_router.dart';
 import 'core/config/config.dart';
 import 'services/local_notification_service.dart';
 import 'services/local_storage_service.dart';
 
-/// المفتاح العالمي للتنقل واستدعاء الـ Context من أي مكان
+/// المفتاح العالمي للتحكم في التنقل وإدارة الواجهة
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // 1. بروتوكول تثبيت الروابط الأساسية لـ Flutter
+  // 1. تثبيت الروابط الأساسية لـ Flutter لضمان استقرار التشغيل
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. التحكم في واجهة النظام (اللون العلوي والوضع العمودي)
+  // 2. ضبط الهوية البصرية للنظام (وضع الوقوف والشفافية)
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
 
-  // 3. مسح الكاش القديم والمفاتيح المؤقتة لضمان بيئة عمل نقية
+  // 3. تنظيف البيانات المؤقتة لضمان بيئة عمل "بن عبيد" نقية 100%
   await _clearSystemCache();
 
-  // 4. تهيئة الخدمات مع معالجة الأخطاء الذكية (SafeBoot)
+  // 4. تشغيل الخدمات المركزية (Supabase & Local DB)
   await _initializeApplicationServices();
 
-  // 5. بروتوكول طلب صلاحيات النظام المتطور
+  // 5. طلب صلاحيات التشغيل الميداني (أندرويد 15)
   await _requestSystemPermissions();
 
-  // 6. تشغيل التطبيق مع نظام إدارة الحالة Riverpod
   runApp(
     const ProviderScope(
       child: BinObaidMainApp(),
@@ -44,117 +43,91 @@ void main() async {
   );
 }
 
-/// محرك تهيئة الخدمات السحابية والمحلية
+/// محرك تهيئة الخدمات (تم الإصلاح ليتوافق مع أحدث إصدارات Supabase)
 Future<void> _initializeApplicationServices() async {
   try {
-    // تشغيل محرك Supabase باستخدام مفتاح الصلاحيات الكاملة Service Role
-    // لضمان الوصول لكافة الجداول وتجاوز قيود الـ RLS
+    // تم الإصلاح: استخدام anonKey وتمرير مفتاح الخدمة مباشرة لحل تعارض الـ Build
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseServiceKey, // اعتماد مفتاح الإدارة الكاملة
-      authOptions: const FlutterAuthOptions(
-        localStorage: HiveLocalStorage(),
-      ),
+      anonKey: AppConfig.supabaseServiceKey, 
       debug: false,
     );
 
-    // تشغيل قاعدة البيانات المحلية Hive للعمل دون إنترنت
+    // تهيئة قاعدة البيانات المحلية Hive
     await Hive.initFlutter();
     
-    // تشغيل خدمات التخزين والإشعارات الخاصة بمؤسسة بن عبيد
+    // تشغيل خدمات المؤسسة المخصصة
     await LocalStorageService.init();
     await LocalNotificationService.initialize(navKey: navigatorKey);
     
-    debugPrint("✅ تم تفعيل نظام بن عبيد بصلاحيات المسؤول الكاملة");
+    debugPrint("✅ نظام بن عبيد: جميع الخدمات تعمل بصلاحيات الإدارة الكاملة");
   } catch (e) {
-    debugPrint("⚠️ فشل في تهيئة بعض الخدمات: $e");
-    // النظام يستمر في العمل حتى في حال فشل جزئي لضمان عدم توقف العمل
+    debugPrint("⚠️ تنبيه في نظام التهيئة: $e");
+    // يستمر التطبيق في العمل بوضع الأمان لتجنب الإغلاق المفاجئ
   }
 }
 
-/// نظام إدارة الصلاحيات المتقدم (تجاوز قيود أندرويد 15 و SDK 35)
+/// بروتوكول الصلاحيات المتطور لضمان عدم تعليق التطبيق
 Future<void> _requestSystemPermissions() async {
-  // قائمة الصلاحيات الحيوية للعمل الميداني والمزامنة
   final List<Permission> permissions = [
-    Permission.camera,        // لمسح الباركود
-    Permission.notification,  // لتنبيهات النظام والمبيعات
-    Permission.storage,       // لحفظ تقارير PDF
-    Permission.requestInstallPackages, // لتحديث التطبيق داخلياً
+    Permission.camera,
+    Permission.notification,
+    Permission.storage,
   ];
 
   for (var permission in permissions) {
-    final status = await permission.status;
-    if (status.isDenied) {
+    if (await permission.isDenied) {
       await permission.request();
-      // تأخير طفيف لمنع تداخل نوافذ النظام في أندرويد
-      await Future.delayed(const Duration(milliseconds: 250));
+      await Future.delayed(const Duration(milliseconds: 300));
     }
   }
 
-  // صلاحية خاصة للوصول الكامل للملفات (ضرورية لإصدارات أندرويد الحديثة)
-  if (Platform.isAndroid) {
-    if (await Permission.manageExternalStorage.isDenied) {
-      await Permission.manageExternalStorage.request();
-    }
+  // دعم خاص لأجهزة S908U1 وإصدارات أندرويد الحديثة
+  if (Platform.isAndroid && await Permission.manageExternalStorage.isDenied) {
+    await Permission.manageExternalStorage.request();
   }
 }
 
-/// تنظيف الذاكرة المؤقتة لضمان عدم تضارب البيانات القديمة
+/// حذف مخلفات الإعدادات القديمة
 Future<void> _clearSystemCache() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    // إزالة أي إعدادات يدوية سابقة قد تعيق الاتصال بالرابط الجديد
     await prefs.remove('custom_supabase_url');
     await prefs.remove('custom_supabase_key');
   } catch (_) {}
 }
 
-/// تطبيق بن عبيد الرئيسي - الواجهة والسمات (The Theme Engine)
+/// واجهة التطبيق الرئيسية (The Enterprise UI)
 class BinObaidMainApp extends ConsumerWidget {
   const BinObaidMainApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // مراقبة محرك التنقل GoRouter
+    // ربط محرك المسارات GoRouter
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
       title: 'مؤسسة بن عبيد التجارية',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      // تطبيق الهوية البصرية الرسمية "البريميوم"
+      // السمة البريميوم الرسمية للمؤسسة
       themeMode: ThemeMode.dark,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF0F3BBF),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        fontFamily: 'Cairo', // تأكد من إضافة الخط في pubspec.yaml
+        fontFamily: 'Cairo', // تأكد من تعريف الخط في pubspec.yaml
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1E293B),
           centerTitle: true,
           elevation: 0,
-          titleTextStyle: TextStyle(
-            fontWeight: FontWeight.bold, 
-            fontSize: 20, 
-            color: Colors.white
-          ),
-          iconTheme: IconThemeData(color: Colors.blue),
+          titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F3BBF),
           brightness: Brightness.dark,
           surface: const Color(0xFF1E293B),
-        ),
-        // تخصيص شكل الأزرار في كافة أنحاء التطبيق
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F3BBF),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
         ),
       ),
     );

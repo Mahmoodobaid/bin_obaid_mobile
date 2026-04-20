@@ -1,0 +1,19 @@
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+apply plugin: 'com.android.application'
+android {
+    compileSdk 35
+    namespace "com.binobaid.trading"
+    defaultConfig {
+        applicationId "com.binobaid.trading"
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+}
