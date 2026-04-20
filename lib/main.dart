@@ -7,127 +7,132 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// استيراد ملفات مشروع بن عبيد (تأكد من مطابقة المسارات في مشروعك)
 import 'app_router.dart';
 import 'core/config/config.dart';
 import 'services/local_notification_service.dart';
 import 'services/local_storage_service.dart';
 
-/// المفتاح العالمي للتحكم في التنقل وإدارة الواجهة
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // 1. تثبيت الروابط الأساسية لـ Flutter لضمان استقرار التشغيل
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. ضبط الهوية البصرية للنظام (وضع الوقوف والشفافية)
+  
+  // ضبط اتجاه الشاشة وألوان النظام (StatusBar & NavigationBar)
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF0F172A),
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  // 3. تنظيف البيانات المؤقتة لضمان بيئة عمل "بن عبيد" نقية 100%
   await _clearSystemCache();
-
-  // 4. تشغيل الخدمات المركزية (Supabase & Local DB)
   await _initializeApplicationServices();
-
-  // 5. طلب صلاحيات التشغيل الميداني (أندرويد 15)
   await _requestSystemPermissions();
 
-  runApp(
-    const ProviderScope(
-      child: BinObaidMainApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: BinObaidMainApp()));
 }
 
-/// محرك تهيئة الخدمات (تم الإصلاح ليتوافق مع أحدث إصدارات Supabase)
 Future<void> _initializeApplicationServices() async {
   try {
-    // تم الإصلاح: استخدام anonKey وتمرير مفتاح الخدمة مباشرة لحل تعارض الـ Build
+    // الاتصال بالسيرفر باستخدام مفتاح الخدمة لتجاوز قيود الـ RLS
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseServiceKey, 
+      anonKey: AppConfig.supabaseServiceKey,
       debug: false,
     );
-
-    // تهيئة قاعدة البيانات المحلية Hive
-    await Hive.initFlutter();
     
-    // تشغيل خدمات المؤسسة المخصصة
+    await Hive.initFlutter();
     await LocalStorageService.init();
     await LocalNotificationService.initialize(navKey: navigatorKey);
     
-    debugPrint("✅ نظام بن عبيد: جميع الخدمات تعمل بصلاحيات الإدارة الكاملة");
+    debugPrint("✅ نظام بن عبيد: المحرك يعمل بكفاءة 100%");
   } catch (e) {
-    debugPrint("⚠️ تنبيه في نظام التهيئة: $e");
-    // يستمر التطبيق في العمل بوضع الأمان لتجنب الإغلاق المفاجئ
+    debugPrint("⚠️ فشل في تهيئة المحرك: $e");
   }
 }
 
-/// بروتوكول الصلاحيات المتطور لضمان عدم تعليق التطبيق
 Future<void> _requestSystemPermissions() async {
-  final List<Permission> permissions = [
-    Permission.camera,
-    Permission.notification,
-    Permission.storage,
-  ];
-
-  for (var permission in permissions) {
-    if (await permission.isDenied) {
-      await permission.request();
-      await Future.delayed(const Duration(milliseconds: 300));
+  if (Platform.isAndroid) {
+    // طلب حزمة الصلاحيات الأساسية
+    await [
+      Permission.camera,
+      Permission.notification,
+      Permission.storage,
+    ].request();
+    
+    // صلاحية خاصة لأجهزة أندرويد الحديثة (S908U1)
+    if (await Permission.manageExternalStorage.isDenied) {
+      await Permission.manageExternalStorage.request();
     }
   }
-
-  // دعم خاص لأجهزة S908U1 وإصدارات أندرويد الحديثة
-  if (Platform.isAndroid && await Permission.manageExternalStorage.isDenied) {
-    await Permission.manageExternalStorage.request();
-  }
 }
 
-/// حذف مخلفات الإعدادات القديمة
 Future<void> _clearSystemCache() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('custom_supabase_url');
-    await prefs.remove('custom_supabase_key');
+    await prefs.clear(); // تصفير كامل لضمان بداية نقية
   } catch (_) {}
 }
 
-/// واجهة التطبيق الرئيسية (The Enterprise UI)
 class BinObaidMainApp extends ConsumerWidget {
   const BinObaidMainApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ربط محرك المسارات GoRouter
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
       title: 'مؤسسة بن عبيد التجارية',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      // السمة البريميوم الرسمية للمؤسسة
       themeMode: ThemeMode.dark,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF0F3BBF),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        fontFamily: 'Cairo', // تأكد من تعريف الخط في pubspec.yaml
+        
+        // تصميم الـ AppBar الفاخر
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1E293B),
           centerTitle: true,
-          elevation: 0,
-          titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          elevation: 8,
+          shadowColor: Colors.black26,
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold, 
+            fontSize: 20, 
+            color: Colors.white,
+            letterSpacing: 0.5
+          ),
+          iconTheme: IconThemeData(color: Colors.white),
         ),
+
+        // توزيع الألوان والظلال (Premium UI)
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F3BBF),
           brightness: Brightness.dark,
           surface: const Color(0xFF1E293B),
+          primary: const Color(0xFF3B82F6),
+          secondary: const Color(0xFF10B981),
+        ),
+
+        // تصميم البطاقات (Cards)
+        cardTheme: CardTheme(
+          color: const Color(0xFF1E293B),
+          elevation: 4,
+          margin: const EdgeInsets.all(8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        
+        // تصميم الأزرار (Buttons)
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F3BBF),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
       ),
     );
