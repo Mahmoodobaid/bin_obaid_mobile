@@ -17,9 +17,11 @@ class ApiService {
       'apikey': anonKey,
       'Authorization': 'Bearer $anonKey',
       'Content-Type': 'application/json',
+     'Prefer': 'return=minimal',
+ 
     },
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 
   void updateAuthToken(String token) {
