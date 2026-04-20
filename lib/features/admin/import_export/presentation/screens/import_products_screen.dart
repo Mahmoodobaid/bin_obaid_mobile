@@ -149,7 +149,7 @@ class _ImportProductsScreenState extends ConsumerState<ImportProductsScreen>
       }
       _selectedFile = File(result.files.single.path!);
       final bytes = await _selectedFile!.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+      final excel = excel_lib.Excel.decodeBytes(bytes);
       _sheetNames = excel.tables.keys.toList();
       if (_sheetNames.isEmpty) {
         throw Exception('ملف Excel لا يحتوي على أي أوراق');
@@ -167,7 +167,7 @@ class _ImportProductsScreenState extends ConsumerState<ImportProductsScreen>
     if (_selectedFile == null) return;
     try {
       final bytes = await _selectedFile!.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+      final excel = excel_lib.Excel.decodeBytes(bytes);
       final sheet = excel.tables[_selectedSheet];
       if (sheet == null || sheet.rows.isEmpty) return;
       if (_headerRowIndex >= sheet.rows.length) _headerRowIndex = 0;
@@ -191,7 +191,7 @@ class _ImportProductsScreenState extends ConsumerState<ImportProductsScreen>
     setState(() => _isPreviewLoading = true);
     try {
       final bytes = await _selectedFile!.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+      final excel = excel_lib.Excel.decodeBytes(bytes);
       final sheet = excel.tables[_selectedSheet];
       if (sheet == null) return;
       final rows = sheet.rows.skip(_headerRowIndex + 1).take(5).toList();
@@ -239,7 +239,7 @@ class _ImportProductsScreenState extends ConsumerState<ImportProductsScreen>
 
     try {
       final bytes = await _selectedFile!.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+      final excel = excel_lib.Excel.decodeBytes(bytes);
       final sheet = excel.tables[_selectedSheet];
       if (sheet == null) throw Exception('تعذر العثور على الورقة المحددة');
       final rows = sheet.rows.skip(_headerRowIndex + 1).toList();
