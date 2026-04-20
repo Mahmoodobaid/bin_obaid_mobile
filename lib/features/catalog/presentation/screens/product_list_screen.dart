@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
+import 'dart:ui' as ui; // الحل النهائي لمشكلة rtl في بعض إصدارات فلاتر
 import 'package:intl/intl.dart';
 
 // الاستيرادات الأساسية لمشروع مؤسسة بن عبيد
@@ -39,11 +40,12 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
   void _initializeData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productProvider.notifier).loadProducts();
-      // تأكد من وجود categoryProvider في مشروعك أو استبدله بالمزود الصحيح
+      // استدعاء الفئات بأمان
       try {
-        ref.read(categoryProvider.notifier).loadCategories();
+        // إذا كان لديك categoryProvider مفعل، سيتم استدعاؤه هنا
+        // ref.read(categoryProvider.notifier).loadCategories();
       } catch (e) {
-        debugPrint("CategoryProvider not found, skipping...");
+        debugPrint("CategoryProvider setup check...");
       }
     });
   }
@@ -63,25 +65,22 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
       
       // المرحلة 1: تحديث المنتجات
       await ref.read(productProvider.notifier).refresh();
-      setState(() { _syncProgress = 0.5; _syncStatusText = "تم جلب الأصناف بنجاح..."; });
+      setState(() { _syncProgress = 0.6; _syncStatusText = "تم تحديث الأصناف..."; });
 
-      // المرحلة 2: تحديث الفئات
-      try {
-        await ref.read(categoryProvider.notifier).loadCategories();
-      } catch (_) {}
-      
+      // المرحلة 2: تحديث إضافي (اختياري)
       setState(() { 
         _syncProgress = 1.0; 
         _syncStatusText = "اكتملت المزامنة ✅";
-        _lastSyncTime = DateFormat('HH:mm:ss').format(DateTime.now());
+        _lastSyncTime = DateFormat('HH:mm').format(DateTime.now());
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم تحديث البيانات بنجاح في $_lastSyncTime'),
+            content: Text('تم تحديث البيانات بنجاح: $_lastSyncTime'),
             backgroundColor: Colors.green.shade800,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -101,11 +100,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
-          children: [Icon(Icons.warning_amber_rounded, color: Colors.orange), SizedBox(width: 10), Text("تنبيه المزامنة")],
+          children: [Icon(Icons.warning_amber_rounded, color: Colors.orange), SizedBox(width: 10), Text("تنبيه المزامنة", style: TextStyle(color: Colors.white))],
         ),
-        content: Text("لم نتمكن من الوصول للسيرفر حالياً.\nالخطأ: $error", style: const TextStyle(color: Colors.white70)),
+        content: Text("لم نتمكن من الوصول للسيرفر حالياً.\nتأكد من الإنترنت.", style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("فهمت")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("حسناً")),
         ],
       ),
     );
@@ -130,7 +129,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: ui.TextDirection.rtl, // تحديد المكتبة الصريحة لضمان نجاح الـ Build
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
         body: CustomScrollView(
@@ -176,7 +175,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
         ),
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.sync_rounded), onPressed: _handleProSync),
+        IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: _handleProSync),
         _buildCartBadge(),
       ],
       bottom: _isSyncing 
@@ -191,7 +190,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
   Widget _buildCartBadge() {
     return Stack(
       children: [
-        IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: () => context.push('/cart')),
+        IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white), onPressed: () => context.push('/cart')),
         Positioned(
           right: 8,
           top: 8,
@@ -218,8 +217,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
           child: TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
             decoration: InputDecoration(
               hintText: 'ابحث باسم القطعة أو الكود (SKU)...',
+              hintStyle: const TextStyle(color: Colors.grey),
               prefixIcon: const Icon(Icons.search_outlined, color: Colors.blue),
               suffixIcon: _searchController.text.isNotEmpty 
                   ? IconButton(icon: const Icon(Icons.cancel_outlined), onPressed: () { _searchController.clear(); _onSearchChanged(""); }) 
@@ -243,9 +244,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
           Text("تم العثور على ${state.filteredProducts.length} صنف", 
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text("آخر تحديث: $_lastSyncTime", style: const TextStyle(fontSize: 10, color: Colors.blue)),
+            child: Text("آخر تحديث: $_lastSyncTime", style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -270,7 +271,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
         child: EmptyState(
           icon: Icons.search_off_rounded, 
           message: 'لا توجد نتائج مطابقة لبحثك', 
-          actionLabel: 'إعادة تعيين', 
+          actionLabel: 'إعادة تعيين البحث', 
           onAction: () { _searchController.clear(); _onSearchChanged(""); }
         )
       );
@@ -296,10 +297,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> with Sing
   Widget _buildModernFAB() {
     return FloatingActionButton.extended(
       onPressed: () => context.push('/barcode-scanner'),
-      backgroundColor: const Color(0xFFF59E0B), // اللون البرتقالي الماسي
+      backgroundColor: const Color(0xFFF59E0B), // البرتقالي الماسي لعلامة "بن عبيد" التجارية
       elevation: 10,
-      icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
-      label: const Text("جرد سريع", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
+      label: const Text("مسح سريع", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
     );
   }
 

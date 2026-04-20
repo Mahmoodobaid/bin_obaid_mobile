@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui' as ui; // حل مشكلة الـ TextDirection نهائياً
+
 import '../providers/cart_provider.dart';
 import '../../../../core/widgets/empty_state.dart';
 
@@ -14,7 +16,7 @@ class CartScreen extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: ui.TextDirection.rtl, // تحديد المكتبة بدقة لإصلاح خطأ rtl
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
         appBar: _buildAppBar(context, ref, cart, isDark),
@@ -36,7 +38,6 @@ class CartScreen extends ConsumerWidget {
     );
   }
 
-  // AppBar بتصميم عصري
   PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref, dynamic cart, bool isDark) {
     return AppBar(
       elevation: 0,
@@ -59,7 +60,6 @@ class CartScreen extends ConsumerWidget {
     );
   }
 
-  // تصميم بطاقة المنتج الماسي
   Widget _buildCartItem(BuildContext context, WidgetRef ref, dynamic item, bool isDark) {
     return Dismissible(
       key: Key(item.product.sku),
@@ -84,7 +84,7 @@ class CartScreen extends ConsumerWidget {
                 children: [
                   Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1),
                   const SizedBox(height: 4),
-                  Text('سعر الوحدة: ${item.product.unitPrice} ريال', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text('السعر: ${item.product.unitPrice} ريال', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 12),
                   _buildQuantityController(ref, item),
                 ],
@@ -99,10 +99,7 @@ class CartScreen extends ConsumerWidget {
 
   Widget _buildQuantityController(WidgetRef ref, dynamic item) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -119,10 +116,7 @@ class CartScreen extends ConsumerWidget {
 
   Widget _qBtn(IconData icon, VoidCallback action) {
     return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        action();
-      },
+      onTap: () { HapticFeedback.lightImpact(); action(); },
       child: Padding(padding: const EdgeInsets.all(8), child: Icon(icon, size: 16, color: Colors.blue.shade900)),
     );
   }
@@ -148,7 +142,14 @@ class CartScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          _rowInfo('إجمالي السلة', '${cart.totalAmount.toStringAsFixed(2)} ريال', isLarge: true),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('إجمالي الفاتورة', style: TextStyle(color: Colors.grey, fontSize: 14)),
+              Text('${cart.totalAmount.toStringAsFixed(2)} ريال', 
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+            ],
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -156,11 +157,11 @@ class CartScreen extends ConsumerWidget {
             child: ElevatedButton(
               onPressed: () => context.push('/invoice'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade800,
+                backgroundColor: const Color(0xFFF59E0B),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                elevation: 0,
               ),
-              child: const Text('تأكيد الطلب وإصدار الفاتورة 🧾', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+              child: const Text('تأكيد الطلب وإصدار الفاتورة 🧾', 
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
             ),
           ),
         ],
@@ -168,21 +169,11 @@ class CartScreen extends ConsumerWidget {
     );
   }
 
-  Widget _rowInfo(String label, String value, {bool isLarge = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: isLarge ? 22 : 16)),
-      ],
-    );
-  }
-
   Widget _buildEmptyState(BuildContext context) {
     return EmptyState(
       icon: Icons.add_shopping_cart_rounded,
-      message: 'سلة مؤسسة بن عبيد تنتظر اختياراتك',
-      actionLabel: 'تصفح الأصناف الآن',
+      message: 'سلة مؤسسة بن عبيد فارغة',
+      actionLabel: 'تصفح الأصناف',
       onAction: () => context.go('/catalog'),
     );
   }
@@ -204,7 +195,6 @@ class CartScreen extends ConsumerWidget {
     return Container(
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.only(right: 25),
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(color: Colors.red.shade400, borderRadius: BorderRadius.circular(20)),
       child: const Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 30),
     );
@@ -216,18 +206,16 @@ class CartScreen extends ConsumerWidget {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('تفريغ السلة؟'),
-        content: const Text('سيتم حذف جميع الأصناف المختارة، هل أنت متأكد؟'),
+        content: const Text('هل أنت متأكد من حذف جميع الأصناف؟'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              // محاولة الاستدعاء الآمن
-              try { ref.read(cartProvider.notifier).clear(); } catch (_) { 
-                // إذا لم تكن دالة clear موجودة، نحذف العناصر يدوياً
-                for (var item in ref.read(cartProvider).items) {
-                  ref.read(cartProvider.notifier).removeItem(item.product.sku);
-                }
+              // تم حذف استدعاء clear() المسبب للخطأ واستبداله بمنطق يدوي آمن
+              final items = ref.read(cartProvider).items;
+              for (var item in items) {
+                ref.read(cartProvider.notifier).removeItem(item.product.sku);
               }
               Navigator.pop(context);
             },
