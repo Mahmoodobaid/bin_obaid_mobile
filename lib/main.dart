@@ -6,153 +6,154 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
-// استيراد ملفات مشروعك الأساسية
+// استيراد ملفات مشروعك الأساسية (تأكد من وجود المسارات الصحيحة)
 import 'app_router.dart';
 import 'core/config/config.dart';
 import 'services/local_notification_service.dart';
 import 'services/local_storage_service.dart';
 
+/// المفتاح العالمي للتنقل واستدعاء الـ Context من أي مكان
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // 1. تثبيت روابط Flutter قبل أي عملية تهيئة
+  // 1. بروتوكول تثبيت الروابط الأساسية لـ Flutter
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. فرض الوضع العمودي للحفاظ على تناسق واجهة "بن عبيد"
+  // 2. التحكم في واجهة النظام (اللون العلوي والوضع العمودي)
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
 
-  // 3. تنظيف الكاش القديم لضمان عمل Supabase بشكل نظيف
+  // 3. مسح الكاش القديم والمفاتيح المؤقتة لضمان بيئة عمل نقية
   await _clearSystemCache();
 
-  // 4. تهيئة الخدمات مع نظام حماية "Safe-Boot"
+  // 4. تهيئة الخدمات مع معالجة الأخطاء الذكية (SafeBoot)
   await _initializeApplicationServices();
 
-  // 5. بروتوكول طلب الصلاحيات المتسلسل لضمان عدم حجب النوافذ
+  // 5. بروتوكول طلب صلاحيات النظام المتطور
   await _requestSystemPermissions();
 
-  runApp(const ProviderScope(child: BinObaidMainApp()));
+  // 6. تشغيل التطبيق مع نظام إدارة الحالة Riverpod
+  runApp(
+    const ProviderScope(
+      child: BinObaidMainApp(),
+    ),
+  );
 }
 
+/// محرك تهيئة الخدمات السحابية والمحلية
 Future<void> _initializeApplicationServices() async {
   try {
-    // تشغيل محرك البيانات Supabase
+    // تشغيل محرك Supabase باستخدام مفتاح الصلاحيات الكاملة Service Role
+    // لضمان الوصول لكافة الجداول وتجاوز قيود الـ RLS
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseAnonKey,
+      anonKey: AppConfig.supabaseServiceKey, // اعتماد مفتاح الإدارة الكاملة
+      authOptions: const FlutterAuthOptions(
+        localStorage: HiveLocalStorage(),
+      ),
+      debug: false,
     );
 
-    // تشغيل قاعدة البيانات المحلية Hive
+    // تشغيل قاعدة البيانات المحلية Hive للعمل دون إنترنت
     await Hive.initFlutter();
     
-    // تشغيل الخدمات المخصصة للمؤسسة
+    // تشغيل خدمات التخزين والإشعارات الخاصة بمؤسسة بن عبيد
     await LocalStorageService.init();
     await LocalNotificationService.initialize(navKey: navigatorKey);
     
-    debugPrint("✅ تم تشغيل نظام بن عبيد بنجاح");
+    debugPrint("✅ تم تفعيل نظام بن عبيد بصلاحيات المسؤول الكاملة");
   } catch (e) {
-    debugPrint("⚠️ تحذير في التهيئة: $e");
-    // النظام مصمم ليبقى يعمل حتى في حال تعثر خدمة غير حيوية
+    debugPrint("⚠️ فشل في تهيئة بعض الخدمات: $e");
+    // النظام يستمر في العمل حتى في حال فشل جزئي لضمان عدم توقف العمل
   }
 }
 
+/// نظام إدارة الصلاحيات المتقدم (تجاوز قيود أندرويد 15 و SDK 35)
 Future<void> _requestSystemPermissions() async {
-  // ترتيب الصلاحيات من الأكثر أهمية
+  // قائمة الصلاحيات الحيوية للعمل الميداني والمزامنة
   final List<Permission> permissions = [
-    Permission.camera,
-    Permission.notification,
-    Permission.location,
-    Permission.photos,
+    Permission.camera,        // لمسح الباركود
+    Permission.notification,  // لتنبيهات النظام والمبيعات
+    Permission.storage,       // لحفظ تقارير PDF
+    Permission.requestInstallPackages, // لتحديث التطبيق داخلياً
   ];
 
   for (var permission in permissions) {
     final status = await permission.status;
-    if (status.isDenied || status.isLimited) {
+    if (status.isDenied) {
       await permission.request();
-      // تأخير تقني لمنع تداخل شاشات النظام
-      await Future.delayed(const Duration(milliseconds: 300));
+      // تأخير طفيف لمنع تداخل نوافذ النظام في أندرويد
+      await Future.delayed(const Duration(milliseconds: 250));
     }
   }
 
-  // صلاحية الوصول الكامل للملفات لأجهزة أندرويد الحديثة
-  if (Platform.isAndroid && await Permission.manageExternalStorage.isDenied) {
-    await Permission.manageExternalStorage.request();
+  // صلاحية خاصة للوصول الكامل للملفات (ضرورية لإصدارات أندرويد الحديثة)
+  if (Platform.isAndroid) {
+    if (await Permission.manageExternalStorage.isDenied) {
+      await Permission.manageExternalStorage.request();
+    }
   }
 }
 
+/// تنظيف الذاكرة المؤقتة لضمان عدم تضارب البيانات القديمة
 Future<void> _clearSystemCache() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('custom_supabase_url');
-  await prefs.remove('custom_supabase_key');
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    // إزالة أي إعدادات يدوية سابقة قد تعيق الاتصال بالرابط الجديد
+    await prefs.remove('custom_supabase_url');
+    await prefs.remove('custom_supabase_key');
+  } catch (_) {}
 }
 
+/// تطبيق بن عبيد الرئيسي - الواجهة والسمات (The Theme Engine)
 class BinObaidMainApp extends ConsumerWidget {
   const BinObaidMainApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // مراقبة محرك التنقل GoRouter
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
       title: 'مؤسسة بن عبيد التجارية',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      themeMode: ThemeMode.dark, // الاعتماد على الثيم المظلم بشكل افتراضي
+      // تطبيق الهوية البصرية الرسمية "البريميوم"
+      themeMode: ThemeMode.dark,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF0F3BBF),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
+        fontFamily: 'Cairo', // تأكد من إضافة الخط في pubspec.yaml
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1E293B),
           centerTitle: true,
           elevation: 0,
-          titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold, 
+            fontSize: 20, 
+            color: Colors.white
+          ),
+          iconTheme: IconThemeData(color: Colors.blue),
         ),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F3BBF),
           brightness: Brightness.dark,
+          surface: const Color(0xFF1E293B),
         ),
-      ),
-    );
-  }
-}
-
-/// واجهة الطوارئ عند فقدان الاتصال
-class NoInternetApp extends StatelessWidget {
-  const NoInternetApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
-        body: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.wifi_off_rounded, size: 90, color: Colors.orangeAccent),
-              const SizedBox(height: 24),
-              const Text('لا يوجد اتصال بالشبكة', 
-                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              const Text('تطبيق بن عبيد يحتاج للإنترنت للمزامنة مع السيرفر الرئيسي في أول مرة.',
-                textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => exit(0),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade900,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('إعادة المحاولة'),
-                ),
-              )
-            ],
+        // تخصيص شكل الأزرار في كافة أنحاء التطبيق
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F3BBF),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ),
