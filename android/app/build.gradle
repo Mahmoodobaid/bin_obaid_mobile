@@ -5,15 +5,43 @@ if (localPropertiesFile.exists()) {
         localProperties.load(reader)
     }
 }
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in local.properties.")
+}
+
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
 android {
+    // يجب أن يتطابق هذا مع المجلدات في src/main/kotlin
+    namespace "com.binobaid.trading" 
     compileSdk 35
-    namespace "com.binobaid.trading"
+
     defaultConfig {
         applicationId "com.binobaid.trading"
         minSdk 21
-        targetSdk 35
+        targetSdk 35 // متوافق مع جهازك S908U1 وأندرويد 15
         versionCode 1
-        versionName "1.0.0"
+        versionName "2.1.0" // رقم النسخة الاحترافية
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
 }
