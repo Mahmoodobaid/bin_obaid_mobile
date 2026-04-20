@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui' as ui;
 
 // -------------------------------------------------------------------------
-// 1. إعدادات الاتصال المباشرة (نظام بن عبيد - إب)
+// 1. إعدادات الاتصال المباشرة (نظام بن عبيد - الإصدار الاحترافي)
 // -------------------------------------------------------------------------
 class BinObaidConfig {
   static const String url = "https://ackxfnznrjufhppaznjd.supabase.co";
@@ -40,20 +41,23 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
 
   Future<void> initSystem() async {
     state = state.copyWith(isLoading: true);
-    // الجداول الفعلية المكتشفة في نظامك
+    // الجداول الأساسية المعتمدة في نظام بن عبيد
     const activeTables = [
       'products', 'users', 'pending_users', 'quotes', 
       'quote_items', 'logs', 'settings', 'sync_queue'
     ];
-    await Future.delayed(const Duration(milliseconds: 800)); // مظهر احترافي للتحميل
+    await Future.delayed(const Duration(milliseconds: 500));
     state = state.copyWith(tables: activeTables, isLoading: false);
   }
 
   Future<void> fetchTableData(String tableName) async {
     state = state.copyWith(isLoading: true, data: [], error: null);
     try {
-      final response = await _supabase.from(tableName).select().limit(500); // جلب كمية كافية
-      state = state.copyWith(data: List<Map<String, dynamic>>.from(response), isLoading: false);
+      final response = await _supabase.from(tableName).select().limit(1000);
+      state = state.copyWith(
+        data: List<Map<String, dynamic>>.from(response), 
+        isLoading: false
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -63,7 +67,7 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
 final databaseProvider = StateNotifierProvider<DatabaseNotifier, DatabaseState>((ref) => DatabaseNotifier());
 
 // -------------------------------------------------------------------------
-// 3. الواجهة الرسومية الاحترافية (The Professional UI)
+// 3. الواجهة الرسومية الاحترافية (The Ultra UI)
 // -------------------------------------------------------------------------
 class DatabaseManagerScreen extends ConsumerStatefulWidget {
   const DatabaseManagerScreen({super.key});
@@ -76,7 +80,7 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
   String? _currentTable;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
-  int _rowsPerPage = 10;
+  int _rowsPerPage = PaginatedDataTable.defaultRowsPerPage;
 
   @override
   void initState() {
@@ -90,30 +94,29 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
 
-    // تصفية البيانات ذكياً
+    // تصفية البيانات بشكل لحظي
     final filteredData = state.data.where((row) {
       return row.values.any((v) => v.toString().toLowerCase().contains(_query.toLowerCase()));
     }).toList();
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: ui.TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+        drawer: size.width <= 900 ? Drawer(child: _buildSidePanel(state, isDark, isDrawer: true)) : null,
         body: Row(
           children: [
-            // القائمة الجانبية (Navigation Side Panel)
-            if (size.width > 700) _buildSidePanel(state, isDark),
-            
+            if (size.width > 900) _buildSidePanel(state, isDark),
             Expanded(
               child: Column(
                 children: [
-                  _buildTopHeader(isDark, context),
+                  _buildHeader(isDark),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.all(24.0),
                       child: _currentTable == null 
-                        ? _buildDashboardHome(isDark)
-                        : _buildMainDataTable(filteredData, isDark, state.isLoading),
+                        ? _buildWelcomeView(isDark)
+                        : _buildDataTableArea(filteredData, isDark, state.isLoading),
                     ),
                   ),
                 ],
@@ -121,143 +124,185 @@ class _DatabaseManagerScreenState extends ConsumerState<DatabaseManagerScreen> {
             ),
           ],
         ),
-        // زر القائمة للجوال
-        drawer: size.width <= 700 ? Drawer(child: _buildSidePanel(state, isDark)) : null,
       ),
     );
   }
 
-  Widget _buildTopHeader(bool isDark, BuildContext context) {
+  Widget _buildHeader(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        border: Border(bottom: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
       ),
       child: Row(
         children: [
-          if (MediaQuery.of(context).size.width <= 700)
-            Builder(builder: (ctx) => IconButton(icon: const Icon(Icons.menu), onPressed: () => Scaffold.of(ctx).openDrawer())),
-          const Text('نظام بن عبيد السحابي', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          if (MediaQuery.of(context).size.width <= 900)
+            Builder(builder: (context) => IconButton(
+              icon: const Icon(Icons.menu_open_rounded),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            )),
+          const SizedBox(width: 10),
+          Text(
+            _currentTable == null ? 'لوحة التحكم الرئيسية' : 'إدارة جدول ${_currentTable!.toUpperCase()}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const Spacer(),
-          _buildSearchField(isDark),
+          _buildSearchBox(isDark),
           const SizedBox(width: 15),
-          IconButton(icon: const Icon(Icons.logout_rounded, color: Colors.redAccent), onPressed: () => context.go('/home')),
+          _buildActionIcon(Icons.notifications_none_rounded),
+          _buildActionIcon(Icons.help_outline_rounded),
         ],
       ),
     );
   }
 
-  Widget _buildSearchField(bool isDark) {
+  Widget _buildSearchBox(bool isDark) {
     return Container(
       width: 300,
-      height: 45,
+      height: 40,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(
         controller: _searchController,
         onChanged: (v) => setState(() => _query = v),
         decoration: const InputDecoration(
-          hintText: 'بحث سريع في السجلات...',
-          prefixIcon: Icon(Icons.search, size: 20),
+          hintText: 'بحث في السجلات...',
+          prefixIcon: Icon(Icons.search, size: 18),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 10),
+          contentPadding: EdgeInsets.only(top: 8),
         ),
       ),
     );
   }
 
-  Widget _buildSidePanel(DatabaseState state, bool isDark) {
+  Widget _buildActionIcon(IconData icon) {
     return Container(
-      width: 260,
-      color: isDark ? const Color(0xFF161B22) : Colors.blue.shade900,
+      margin: const EdgeInsets.only(left: 8),
+      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      child: IconButton(icon: Icon(icon, color: Colors.blue, size: 20), onPressed: () {}),
+    );
+  }
+
+  Widget _buildSidePanel(DatabaseState state, bool isDark, {bool isDrawer = false}) {
+    return Container(
+      width: 280,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+        boxShadow: [if (isDrawer) const BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
       child: Column(
         children: [
-          const SizedBox(height: 50),
-          const CircleAvatar(radius: 35, backgroundColor: Colors.white24, child: Icon(Icons.business_center, color: Colors.white, size: 35)),
+          const SizedBox(height: 40),
+          const Hero(
+            tag: 'logo',
+            child: CircleAvatar(
+              radius: 40, 
+              backgroundColor: Colors.blue, 
+              child: Icon(Icons.bolt_rounded, color: Colors.white, size: 45)
+            ),
+          ),
           const SizedBox(height: 15),
-          const Text('Bin Obaid Trading', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('لوحة الإدارة v2.0', style: TextStyle(color: Colors.white54, fontSize: 11)),
-          const SizedBox(height: 30),
-          const Divider(color: Colors.white10),
+          const Text('Bin Obaid Cloud', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          const Text('نظام الإدارة السحابي v2.0', style: TextStyle(color: Colors.blue, fontSize: 12)),
+          const SizedBox(height: 40),
           Expanded(
-            child: ListView.builder(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
               itemCount: state.tables.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final table = state.tables[index];
                 final isSelected = _currentTable == table;
-                return ListTile(
-                  selected: isSelected,
-                  selectedTileColor: Colors.white.withOpacity(0.1),
-                  leading: Icon(Icons.grid_view_rounded, color: isSelected ? Colors.amber : Colors.white70),
-                  title: Text(table.toUpperCase(), style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                  onTap: () {
-                    setState(() => _currentTable = table);
-                    ref.read(databaseProvider.notifier).fetchTableData(table);
-                    if (MediaQuery.of(context).size.width <= 700) context.go('/home');
-                  },
+                return Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    selected: isSelected,
+                    selectedTileColor: Colors.blue.withOpacity(0.2),
+                    leading: Icon(Icons.table_rows_rounded, color: isSelected ? Colors.blue : Colors.white38),
+                    title: Text(
+                      table.toUpperCase(), 
+                      style: TextStyle(color: isSelected ? Colors.blue : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)
+                    ),
+                    onTap: () {
+                      setState(() => _currentTable = table);
+                      ref.read(databaseProvider.notifier).fetchTableData(table);
+                      if (isDrawer) Navigator.pop(context);
+                    },
+                  ),
                 );
               },
             ),
           ),
+          const Divider(color: Colors.white10),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined, color: Colors.white38),
+            title: const Text('الإعدادات', style: TextStyle(color: Colors.white70)),
+            onTap: () {},
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildMainDataTable(List<Map<String, dynamic>> data, bool isDark, bool isLoading) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (data.isEmpty) return const Center(child: Text('لا توجد بيانات متاحة حالياً'));
+  Widget _buildDataTableArea(List<Map<String, dynamic>> data, bool isDark, bool isLoading) {
+    if (isLoading) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    if (data.isEmpty) return const Center(child: Text('هذا الجدول لا يحتوي على بيانات حالياً'));
 
     final columns = data.first.keys.toList();
 
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isDark ? Colors.white10 : Colors.black12)),
-      child: Theme(
-        data: Theme.of(context).copyWith(cardTheme: const CardTheme(elevation: 0)),
+      elevation: 4,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
         child: SingleChildScrollView(
           child: PaginatedDataTable(
-            header: Row(
-              children: [
-                const Icon(Icons.table_chart, color: Colors.blue),
-                const SizedBox(width: 10),
-                Text('سجلات جدول ${_currentTable?.toUpperCase()}'),
-              ],
-            ),
+            header: const Text('سجلات البيانات المستخرجة', style: TextStyle(fontWeight: FontWeight.bold)),
             actions: [
-              IconButton(icon: const Icon(Icons.refresh), onPressed: () => ref.read(databaseProvider.notifier).fetchTableData(_currentTable!)),
+              ElevatedButton.icon(
+                onPressed: () => ref.read(databaseProvider.notifier).fetchTableData(_currentTable!),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('تحديث'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+              ),
             ],
-            columns: columns.map((c) => DataColumn(label: Text(c, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)))).toList(),
+            columns: columns.map((c) => DataColumn(label: Text(c, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)))).toList(),
             source: _TableSource(data, context),
             rowsPerPage: _rowsPerPage,
             onRowsPerPageChanged: (val) => setState(() => _rowsPerPage = val!),
             availableRowsPerPage: const [10, 20, 50],
-            columnSpacing: 40,
+            columnSpacing: 30,
             horizontalMargin: 20,
+            showCheckboxColumn: false,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDashboardHome(bool isDark) {
+  Widget _buildWelcomeView(bool isDark) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.analytics_outlined, size: 100, color: isDark ? Colors.white12 : Colors.grey[200]),
+        Icon(Icons.dashboard_customize_rounded, size: 120, color: Colors.blue.withOpacity(0.2)),
         const SizedBox(height: 20),
-        const Text('أهلاً بك يا سيد محمود', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const Text('اختر أحد الجداول من القائمة اليمنى لإدارة بيانات المتجر والعملاء', style: TextStyle(color: Colors.grey)),
+        const Text('أهلاً بك يا سيد محمود بن عبيد', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        const Text('نظامك جاهز للعمل. اختر أحد الجداول من القائمة الجانبية لعرض وتعديل البيانات.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
       ],
     );
   }
 }
 
 // -------------------------------------------------------------------------
-// 4. محرك البيانات المتقدم (Data Engine)
+// 4. محرك معالجة البيانات (Smart Data Engine)
 // -------------------------------------------------------------------------
 class _TableSource extends DataTableSource {
   final List<Map<String, dynamic>> data;
@@ -269,47 +314,72 @@ class _TableSource extends DataTableSource {
     if (index >= data.length) return null;
     final row = data[index];
     return DataRow(
-      onSelectChanged: (selected) => _openAdvancedDetail(row),
-      cells: row.values.map((v) => DataCell(Text(v.toString(), maxLines: 1, overflow: TextOverflow.ellipsis))).toList(),
+      onSelectChanged: (_) => _showDetails(row),
+      cells: row.values.map((v) => DataCell(
+        Text(v?.toString() ?? "---", maxLines: 1, overflow: TextOverflow.ellipsis)
+      )).toList(),
     );
   }
 
-  void _openAdvancedDetail(Map<String, dynamic> row) {
+  void _showDetails(Map<String, dynamic> row) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
+        height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Column(
           children: [
-            const SizedBox(height: 10),
-            Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
+            const SizedBox(height: 15),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(10))),
             const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text('تفاصيل السجل بدقة عالية', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              padding: EdgeInsets.all(25),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue),
+                  SizedBox(width: 10),
+                  Text('تفاصيل السجل الكاملة', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
             const Divider(),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: row.entries.map((e) => ListTile(
-                  title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 13)),
-                  subtitle: SelectableText(e.value.toString(), style: const TextStyle(fontSize: 16)),
-                  trailing: IconButton(icon: const Icon(Icons.copy, size: 20), onPressed: () {
-                    Clipboard.setData(ClipboardData(text: e.value.toString()));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ النص بنجاح!'), behavior: SnackBarBehavior.floating));
-                  }),
+                children: row.entries.map((e) => Card(
+                  elevation: 0,
+                  color: Colors.grey.withOpacity(0.05),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    title: Text(e.key.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 12)),
+                    subtitle: SelectableText(e.value?.toString() ?? "قيمة فارغة", style: const TextStyle(fontSize: 16)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy_all_rounded, size: 20), 
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: e.value.toString()));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم النسخ للحافظة!'), behavior: SnackBarBehavior.floating));
+                      }
+                    ),
+                  ),
                 )).toList(),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => context.go('/home'), style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('إغلاق التفاصيل'))),
+              padding: const EdgeInsets.all(25.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context), 
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                  child: const Text('إغلاق النافذة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                )
+              ),
             )
           ],
         ),
