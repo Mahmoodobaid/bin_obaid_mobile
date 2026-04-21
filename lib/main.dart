@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'app_router.dart';
 import 'core/config/config.dart';
@@ -18,6 +19,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // تثبيت الاتجاه الرأسي وتخصيص شريط الحالة
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -26,63 +28,82 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  await _clearSystemCache();
-  await _initializeApplicationServices();
-  await _requestSystemPermissions();
+  // تنظيف الذاكرة المؤقتة للصور والملفات (لا تمسح بيانات المستخدم)
+  await _clearTemporaryCache();
 
+  // تهيئة الخدمات الأساسية (شبكة، تخزين، إشعارات)
+  await _initializeApplicationServices();
+
+  // طلب الصلاحيات الضرورية فقط
+  await _requestEssentialPermissions();
+
+  // تشغيل التطبيق
   runApp(const ProviderScope(child: BinObaidMainApp()));
+
+  // تشغيل التشخيص الكامل في الخلفية بعد تحميل الواجهة (اختياري)
+  Future.microtask(() => _runFullDiagnostics());
 }
 
 Future<void> _initializeApplicationServices() async {
   try {
-    // ========== تهيئة Supabase ==========
+    // تهيئة Supabase
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseAnonKey, // استخدم Anon Key للعميل (أكثر أمانًا)
-      debug: true, // تفعيل السجلات
+      anonKey: AppConfig.supabaseAnonKey,
+      debug: false, // يفضل false في الإنتاج
     );
-    debugPrint('✅ Supabase initialized.');
+    debugPrint('✅ Supabase initialized');
 
-    // ========== تشغيل التشخيص الكامل ==========
-    await _runFullDiagnostics();
-
-    // ========== تهيئة التخزين المحلي ==========
+    // تهيئة التخزين المحلي
     await Hive.initFlutter();
     await LocalStorageService.init();
+
+    // تهيئة الإشعارات المحلية
     await LocalNotificationService.initialize(navKey: navigatorKey);
 
-    debugPrint('✅ جميع الخدمات تعمل.');
+    debugPrint('✅ جميع خدمات التطبيق جاهزة');
   } catch (e) {
     debugPrint('❌ فشل في تهيئة الخدمات: $e');
   }
 }
 
-Future<void> _requestSystemPermissions() async {
+Future<void> _requestEssentialPermissions() async {
   if (Platform.isAndroid) {
+    // الصلاحيات الأساسية فقط
     await [
-      Permission.camera,
       Permission.notification,
       Permission.storage,
     ].request();
 
-    if (await Permission.manageExternalStorage.isDenied) {
-      await Permission.manageExternalStorage.request();
-    }
+    // صلاحية الكاميرا تطلب فقط عند استخدامها (في شاشة التصوير)
   }
 }
 
-Future<void> _clearSystemCache() async {
+Future<void> _clearTemporaryCache() async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // تنظيف ذاكرة التخزين المؤقت للصور المحملة عبر الشبكة
+    await CachedNetworkImage.evictFromCache('');
+    // حذف الملفات المؤقتة القديمة (إن وجدت)
+    final tempDir = Directory.systemTemp;
+    if (tempDir.existsSync()) {
+      for (final file in tempDir.listSync().whereType<File>()) {
+        if (file.path.endsWith('.tmp')) {
+          file.deleteSync();
+        }
+      }
+    }
   } catch (_) {}
 }
 
 // ============================================================================
 //                          التشخيص الكامل (Full Diagnostics)
+//              يُنفذ في الخلفية ولا يؤثر على سرعة بدء التطبيق
 // ============================================================================
 
 Future<void> _runFullDiagnostics() async {
+  // انتظر قليلاً حتى تستقر الواجهة
+  await Future.delayed(const Duration(milliseconds: 500));
+
   debugPrint('═══════════════════════════════════════');
   debugPrint('📱 تقرير تشخيص الاتصال - بن عبيد التجارية');
   debugPrint('═══════════════════════════════════════');
