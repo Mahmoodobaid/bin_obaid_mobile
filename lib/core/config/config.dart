@@ -5,7 +5,7 @@
 
 class AppConfig {
   // رابط الخادم السحابي (Supabase)
-  static const String supabaseUrl = 'https://ackxfnznrjufhppaznjd.supabase.co';
+  static const String supabaseUrl = 'https://YOUR_RENDER_URL.onrender.com';
   
   // ============================================================
   // مفتاح العميل العام (anon public) - آمن للاستخدام في التطبيق
