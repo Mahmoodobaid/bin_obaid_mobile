@@ -29,7 +29,7 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
   final _tableController = TextEditingController();
   final _timeoutController = TextEditingController();
 
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   bool _isLoading = false;
   bool _isSaving = false;
@@ -96,7 +96,7 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
   }
 
   void _listenConnectivity() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> result) {
       _checkInternetAvailability();
     });
   }
@@ -216,8 +216,8 @@ class _ConnectionSettingsScreenState extends ConsumerState<ConnectionSettingsScr
   }
 
   Future<void> _checkInternetAvailability() async {
-    final result = await Connectivity().checkConnectivity();
-    _hasInternet = result != ConnectivityResult.none;
+    final List<ConnectivityResult> result = await Connectivity().checkConnectivity();
+    _hasInternet = result.any((r) => r != ConnectivityResult.none);
     try {
       final lookup = await InternetAddress.lookup('google.com');
       _dnsWorking = lookup.isNotEmpty && lookup.first.rawAddress.isNotEmpty;
