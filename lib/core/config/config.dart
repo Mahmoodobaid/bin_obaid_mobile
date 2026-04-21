@@ -1,23 +1,28 @@
 // -------------------------------------------------------------------------
 // ملف الإعدادات المركزية - مؤسسة بن عبيد التجارية
-// الإصدار: 2.2.0 (Ultra Admin Access)
+// الإصدار: 2.2.0 (تشخيص - يحتوي على المفتاحين مؤقتًا)
 // -------------------------------------------------------------------------
 
 class AppConfig {
-  // 1. رابط الخادم السحابي (Supabase)
+  // رابط الخادم السحابي (Supabase)
   static const String supabaseUrl = 'https://ackxfnznrjufhppaznjd.supabase.co';
   
-  // 2. مفتاح الصلاحيات المطلقة (Service Role)
-  // يستخدم لتجاوز قيود الـ RLS وحل مشكلة الجداول الفارغة
+  // ============================================================
+  // مفتاح العميل العام (anon public) - آمن للاستخدام في التطبيق
+  // هذا هو المفتاح الذي يجب أن يبقى بشكل دائم في التطبيق
+  // ============================================================
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFja3hmbnpucmp1ZmhwcGF6bmpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjEyMzgsImV4cCI6MjA5MDc5NzIzOH0.Yzs_X6EI13jLeaDIkXwL6L-7pm-Zl3YXM4aB9Fwves8';
+
+  // ============================================================
+  // ⚠️ مفتاح الخدمة (service_role) - للتشخيص فقط ⚠️
+  // هذا المفتاح يتجاوز جميع قيود الأمان (RLS).
+  // وجوده هنا مؤقت لتشخيص المشكلة، ويجب إزالته بعد التأكد من عمل الاتصال.
+  // لا ترفع هذا الملف إلى مستودع عام وهذا المفتاح موجود فيه.
+  // ============================================================
   static const String supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFja3hmbnpucmp1ZmhwcGF6bmpkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTIyMTIzOCwiZXhwIjoyMDkwNzk3MjM4fQ.QFuG1ZsClKJjAefoY8HDjY6TzyA3RMmM_6U9rl9FHFY';
 
-  // 3. مفتاح التوافقية (Compatibility Key)
-  // هام جداً: هذا السطر يحل أخطاء ملفات (api_service.dart) و (connection_settings_screen.dart) 
-  // التي تسببت في فشل الـ Build لأنها لا تزال تبحث عن مسمى 'supabaseAnonKey'
-  static const String supabaseAnonKey = supabaseServiceKey;
-
-  // 4. إعدادات النظام الإضافية
+  // إعدادات النظام الإضافية
   static const String appName = 'Bin Obaid Trading';
   static const String appVersion = '2.2.0';
-  static const int connectionTimeout = 15; // ثانية لتجاوز مشاكل الـ DNS في اليمن
+  static const int connectionTimeout = 15; // ثانية
 }

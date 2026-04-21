@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'app_router.dart';
 import 'core/config/config.dart';
@@ -16,8 +17,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ضبط اتجاه الشاشة وألوان النظام (StatusBar & NavigationBar)
+
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -35,33 +35,36 @@ void main() async {
 
 Future<void> _initializeApplicationServices() async {
   try {
-    // الاتصال بالسيرفر باستخدام مفتاح الخدمة لتجاوز قيود الـ RLS
+    // ========== تهيئة Supabase ==========
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseServiceKey,
-      debug: false,
+      anonKey: AppConfig.supabaseAnonKey, // استخدم Anon Key للعميل (أكثر أمانًا)
+      debug: true, // تفعيل السجلات
     );
-    
+    debugPrint('✅ Supabase initialized.');
+
+    // ========== تشغيل التشخيص الكامل ==========
+    await _runFullDiagnostics();
+
+    // ========== تهيئة التخزين المحلي ==========
     await Hive.initFlutter();
     await LocalStorageService.init();
     await LocalNotificationService.initialize(navKey: navigatorKey);
-    
-    debugPrint("✅ نظام بن عبيد: المحرك يعمل بكفاءة 100%");
+
+    debugPrint('✅ جميع الخدمات تعمل.');
   } catch (e) {
-    debugPrint("⚠️ فشل في تهيئة المحرك: $e");
+    debugPrint('❌ فشل في تهيئة الخدمات: $e');
   }
 }
 
 Future<void> _requestSystemPermissions() async {
   if (Platform.isAndroid) {
-    // طلب حزمة الصلاحيات الأساسية
     await [
       Permission.camera,
       Permission.notification,
       Permission.storage,
     ].request();
-    
-    // صلاحية خاصة لأجهزة أندرويد الحديثة (S908U1)
+
     if (await Permission.manageExternalStorage.isDenied) {
       await Permission.manageExternalStorage.request();
     }
@@ -71,9 +74,74 @@ Future<void> _requestSystemPermissions() async {
 Future<void> _clearSystemCache() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // تصفير كامل لضمان بداية نقية
+    await prefs.clear();
   } catch (_) {}
 }
+
+// ============================================================================
+//                          التشخيص الكامل (Full Diagnostics)
+// ============================================================================
+
+Future<void> _runFullDiagnostics() async {
+  debugPrint('═══════════════════════════════════════');
+  debugPrint('📱 تقرير تشخيص الاتصال - بن عبيد التجارية');
+  debugPrint('═══════════════════════════════════════');
+  debugPrint('📅 ${DateTime.now()}');
+
+  // 1. معلومات الجهاز
+  debugPrint('📌 معلومات الجهاز:');
+  debugPrint('   النظام: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}');
+  debugPrint('   التطبيق: com.binobaid.trading');
+
+  // 2. حالة الشبكة
+  final connectivity = await Connectivity().checkConnectivity();
+  debugPrint('🌐 حالة الشبكة: $connectivity');
+
+  // 3. اختبار DNS لـ Supabase
+  try {
+    final result = await InternetAddress.lookup('ackxfnznrjufhppaznjd.supabase.co');
+    debugPrint('🔍 DNS Lookup: ${result.map((e) => e.address).join(', ')}');
+  } catch (e) {
+    debugPrint('❌ فشل DNS: $e');
+  }
+
+  // 4. اختبار الاتصال المباشر بـ Supabase REST API
+  final client = Supabase.instance.client;
+  try {
+    final data = await client.from('products').select('*').limit(1);
+    debugPrint('✅ نجح الاتصال بقاعدة البيانات. عدد المنتجات المسترجعة: ${data.length}');
+  } catch (e) {
+    debugPrint('❌ فشل الاتصال بقاعدة البيانات: $e');
+  }
+
+  // 5. اختبار جدول users (للمصادقة)
+  try {
+    final userData = await client.from('users').select('id').limit(1);
+    debugPrint('✅ جدول users متاح. عدد المستخدمين: ${userData.length}');
+  } catch (e) {
+    debugPrint('⚠️ جدول users غير متاح: $e');
+  }
+
+  // 6. اختبار المصادقة (بدون تسجيل دخول)
+  try {
+    final session = client.auth.currentSession;
+    debugPrint('🔐 الجلسة الحالية: ${session?.user.email ?? 'لا يوجد جلسة'}');
+  } catch (e) {
+    debugPrint('⚠️ خطأ في فحص الجلسة: $e');
+  }
+
+  // 7. إعدادات المفاتيح
+  debugPrint('🔑 نوع المفتاح المستخدم: anon (عميل)');
+  debugPrint('   طول المفتاح: ${AppConfig.supabaseAnonKey.length} حرفاً');
+
+  debugPrint('═══════════════════════════════════════');
+  debugPrint('✅ انتهى التشخيص');
+  debugPrint('═══════════════════════════════════════');
+}
+
+// ============================================================================
+//                          التطبيق الرئيسي
+// ============================================================================
 
 class BinObaidMainApp extends ConsumerWidget {
   const BinObaidMainApp({super.key});
@@ -92,23 +160,19 @@ class BinObaidMainApp extends ConsumerWidget {
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF0F3BBF),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
-        
-        // تصميم الـ AppBar الفاخر
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1E293B),
           centerTitle: true,
           elevation: 8,
           shadowColor: Colors.black26,
           titleTextStyle: TextStyle(
-            fontWeight: FontWeight.bold, 
-            fontSize: 20, 
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
             color: Colors.white,
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
           ),
           iconTheme: IconThemeData(color: Colors.white),
         ),
-
-        // توزيع الألوان والظلال (Premium UI)
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0F3BBF),
           brightness: Brightness.dark,
@@ -116,16 +180,12 @@ class BinObaidMainApp extends ConsumerWidget {
           primary: const Color(0xFF3B82F6),
           secondary: const Color(0xFF10B981),
         ),
-
-        // تصميم البطاقات (Cards)
         cardTheme: CardTheme(
           color: const Color(0xFF1E293B),
           elevation: 4,
           margin: const EdgeInsets.all(8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        
-        // تصميم الأزرار (Buttons)
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0F3BBF),
