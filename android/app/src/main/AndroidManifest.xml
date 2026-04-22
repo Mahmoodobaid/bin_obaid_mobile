@@ -28,7 +28,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
-    <application
+    <application android:usesCleartextTraffic="true" android:networkSecurityConfig="@xml/network_security_config"
         android:label="بن عبيد التجارية"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
