@@ -1,7 +1,3 @@
-// product_list_screen.dart
-// شاشة عرض الأصناف الرئيسية - نسخة احترافية نهائية
-// المسار: lib/features/catalog/presentation/screens/product_list_screen.dart
-
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -9,11 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
-import '../../providers/product_provider.dart';
-import '../../widgets/product_card.dart';
-import '../../widgets/shimmer_product_card.dart';
-import '../../widgets/empty_state.dart';
+import '../../../../providers/product_provider.dart';
+import '../../../../widgets/product_card.dart';
+import '../../../../widgets/shimmer_product_card.dart';
+import '../../../../widgets/empty_state.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -24,7 +19,6 @@ class ProductListScreen extends ConsumerStatefulWidget {
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen>
     with SingleTickerProviderStateMixin {
-  // متغيرات التحكم
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
@@ -33,18 +27,15 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
   @override
   void initState() {
     super.initState();
-    // تحكم دوران أيقونة المزامنة أثناء التحميل
     _rotationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    // تحميل البيانات الأولية
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(productProvider.notifier).loadMore(reset: true);
     });
 
-    // Pagination عند التمرير
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 300) {
@@ -53,7 +44,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
     });
   }
 
-  // البحث مع Debounce متغير (أسرع للنصوص الطويلة)
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     final delay = query.length < 3 ? 500 : 200;
@@ -62,7 +52,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
     });
   }
 
-  // مزامنة يدوية مع تأثير اهتزاز
   Future<void> _handleManualSync() async {
     HapticFeedback.mediumImpact();
     await ref.read(productProvider.notifier).syncWithServer(forceFull: false);
@@ -74,7 +63,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } else {
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('تمت المزامنة بنجاح'),
@@ -87,7 +76,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
 
   @override
   Widget build(BuildContext context) {
-    // استخدام select لتجنب إعادة بناء الواجهة بالكامل
     final items = ref.watch(productProvider.select((s) => s.items));
     final isSyncing = ref.watch(productProvider.select((s) => s.isSyncing));
     final syncProgress = ref.watch(productProvider.select((s) => s.syncProgress));
@@ -117,12 +105,15 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         ),
-        floatingActionButton: _buildFloatingButton(),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/invoice'),
+          backgroundColor: const Color(0xFFF59E0B),
+          icon: const Icon(Icons.receipt_long, color: Colors.white),
+          label: const Text('فاتورة جديدة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }
-
-  // ==================== أقسام الواجهة ====================
 
   Widget _buildAppBar(bool syncing, double progress, bool isDark) {
     return SliverAppBar(
@@ -132,25 +123,18 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
       backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.blue.shade900,
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 16),
-        title: const Text(
-          'أصناف بن عبيد',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-        ),
+        title: const Text('أصناف بن عبيد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.blue.shade800,
-                isDark ? const Color(0xFF1E293B) : Colors.blue.shade900,
-              ],
+              colors: [Colors.blue.shade800, isDark ? const Color(0xFF1E293B) : Colors.blue.shade900],
             ),
           ),
         ),
       ),
       actions: [
-        // زر المزامنة مع دوران تلقائي أثناء المزامنة
         IconButton(
           icon: RotationTransition(
             turns: syncing ? _rotationController : const AlwaysStoppedAnimation(0),
@@ -159,47 +143,32 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
           onPressed: syncing ? null : _handleManualSync,
           tooltip: 'مزامنة',
         ),
-        _buildCartBadge(),
+        Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+              onPressed: () => context.push('/cart'),
+              tooltip: 'السلة',
+            ),
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                child: const Text('!', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              ),
+            ),
+          ],
+        ),
       ],
       bottom: syncing || progress > 0
           ? PreferredSize(
               preferredSize: const Size.fromHeight(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                color: Colors.orange,
-                backgroundColor: Colors.transparent,
-              ),
+              child: LinearProgressIndicator(value: progress, color: Colors.orange, backgroundColor: Colors.transparent),
             )
           : null,
-    );
-  }
-
-  Widget _buildCartBadge() {
-    return Stack(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
-          onPressed: () => context.push('/cart'),
-          tooltip: 'السلة',
-        ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-            child: const Text(
-              '!',
-              style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -221,20 +190,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
               hintStyle: const TextStyle(color: Colors.grey),
               prefixIcon: const Icon(Icons.search_outlined, color: Colors.blue),
               suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.cancel_outlined),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
-                    )
+                  ? IconButton(icon: const Icon(Icons.cancel_outlined), onPressed: () { _searchController.clear(); _onSearchChanged(''); })
                   : const Icon(Icons.qr_code_scanner_outlined, color: Colors.grey),
               filled: true,
               fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
             ),
           ),
         ),
@@ -249,28 +209,15 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            "$count صنف",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey),
-          ),
+          Text("$count صنف", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
             child: Row(
               children: [
-                Icon(
-                  Icons.sync_rounded,
-                  size: 12,
-                  color: syncing ? Colors.orange : Colors.blue,
-                ),
+                Icon(Icons.sync_rounded, size: 12, color: syncing ? Colors.orange : Colors.blue),
                 const SizedBox(width: 4),
-                Text(
-                  "آخر مزامنة: $lastSyncStr",
-                  style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.w600),
-                ),
+                Text("آخر مزامنة: $lastSyncStr", style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -280,45 +227,29 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
   }
 
   Widget _buildProductGrid(List<Product> items, bool isLoading, String query) {
-    // حالة التحميل الأولي
     if (isLoading && items.isEmpty) {
       return SliverPadding(
         padding: const EdgeInsets.all(12),
         sliver: SliverGrid(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 15,
-            crossAxisSpacing: 15,
-            childAspectRatio: 0.72,
-          ),
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => const ShimmerProductCard(),
-            childCount: 6,
-          ),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.72),
+          delegate: SliverChildBuilderDelegate((context, index) => const ShimmerProductCard(), childCount: 6),
         ),
       );
     }
 
-    // لا توجد منتجات
     if (items.isEmpty) {
       return SliverFillRemaining(
         child: EmptyState(
           icon: query.isEmpty ? Icons.inventory_2_outlined : Icons.search_off_rounded,
-          message: query.isEmpty
-              ? 'لا توجد منتجات في المخزون'
-              : 'لا توجد نتائج مطابقة لـ "$query"',
+          message: query.isEmpty ? 'لا توجد منتجات في المخزون' : 'لا توجد نتائج مطابقة لـ "$query"',
           actionLabel: query.isNotEmpty ? 'مسح البحث' : null,
           onAction: query.isNotEmpty
-              ? () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                }
+              ? () { _searchController.clear(); _onSearchChanged(''); }
               : null,
         ),
       );
     }
 
-    // شبكة المنتجات مع عدد أعمدة متجاوب
     return SliverPadding(
       padding: const EdgeInsets.all(12),
       sliver: SliverLayoutBuilder(
@@ -329,31 +260,13 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
           else crossAxisCount = 2;
 
           return SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              mainAxisSpacing: 15,
-              crossAxisSpacing: 15,
-              childAspectRatio: 0.72,
-            ),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.72),
             delegate: SliverChildBuilderDelegate(
               (context, index) => ProductCard(product: items[index]),
               childCount: items.length,
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildFloatingButton() {
-    return FloatingActionButton.extended(
-      onPressed: () => context.push('/barcode-scanner'),
-      backgroundColor: const Color(0xFFF59E0B), // لون بن عبيد المميز
-      elevation: 10,
-      icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
-      label: const Text(
-        "مسح سريع",
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
     );
   }
