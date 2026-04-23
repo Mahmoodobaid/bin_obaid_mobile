@@ -1,7 +1,3 @@
-// product_detail_screen.dart
-// شاشة تفاصيل المنتج - نسخة احترافية نهائية
-// المسار: lib/features/catalog/presentation/screens/product_detail_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,8 +14,6 @@ import '../../../../models/user_model.dart';
 import '../../../../services/api_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
-import '../../widgets/quantity_selector.dart';
-import '../../widgets/product_image_gallery.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String sku;
@@ -149,7 +143,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Row(
                 children: [
                   Container(
@@ -176,7 +169,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                 ],
               ),
               const Divider(height: 24),
-              // صورة المنتج
               Container(
                 height: 200,
                 decoration: BoxDecoration(
@@ -196,7 +188,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              // معلومات المنتج
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -323,24 +314,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // معرض الصور
-                    ProductImageGallery(
-                      imageUrls: product.imageUrls,
-                      height: 300,
-                      onIndexChanged: (index) => setState(() => _selectedImageIndex = index),
-                    ),
+                    _buildImageGallery(product),
                     const SizedBox(height: 16),
-                    // معلومات المنتج
                     _buildInfoSection(product, user, isDark),
                     const SizedBox(height: 24),
-                    // وصف المنتج
                     if (product.description != null && product.description!.isNotEmpty)
                       _buildDescriptionSection(product, isDark),
                     const SizedBox(height: 24),
-                    // تفاصيل إضافية
                     _buildDetailsSection(product, isDark),
                     const SizedBox(height: 24),
-                    // السعر والكمية والإجراءات
                     _buildPriceAndActions(product, user, isDark),
                     const SizedBox(height: 32),
                   ],
@@ -349,6 +331,40 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImageGallery(Product product) {
+    if (product.imageUrls.isEmpty) {
+      return Container(
+        height: 300,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: Image.asset('assets/images/default.png', fit: BoxFit.contain, height: 200),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 300,
+      child: PageView.builder(
+        itemCount: product.imageUrls.length,
+        onPageChanged: (index) => setState(() => _selectedImageIndex = index),
+        itemBuilder: (context, index) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: CachedNetworkImage(
+              imageUrl: product.imageUrls[index],
+              fit: BoxFit.contain,
+              placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (_, __, ___) => Image.asset('assets/images/default.png', fit: BoxFit.contain),
+            ),
+          );
+        },
       ),
     );
   }
@@ -392,10 +408,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            product.name,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
+          Text(product.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -419,10 +432,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                 ),
             ],
           ),
-          if (product.barcode != null && product.barcode!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('الباركود: ${product.barcode}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-          ],
         ],
       ),
     );
@@ -434,13 +443,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,10 +456,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            product.description!,
-            style: const TextStyle(height: 1.5),
-          ),
+          Text(product.description!, style: const TextStyle(height: 1.5)),
         ],
       ),
     );
@@ -468,13 +468,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,8 +483,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
           const SizedBox(height: 12),
           _buildDetailRow('وحدة القياس', product.unit ?? 'قطعة'),
           _buildDetailRow('الكمية المتاحة', '${product.stockQuantity.toStringAsFixed(0)}'),
-          if (product.location != null) _buildDetailRow('موقع التخزين', product.location!),
-          if (product.notes != null) _buildDetailRow('ملاحظات', product.notes!),
+          if (product.category != null) _buildDetailRow('التصنيف', product.category!),
         ],
       ),
     );
@@ -502,14 +495,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-          ),
+          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey))),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -526,17 +514,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -2))],
       ),
       child: Column(
         children: [
-          // السعر
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -546,31 +527,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen>
                   children: [
                     Text(
                       priceText,
-                      style: TextStyle(
-                        fontSize: hasDiscount ? 28 : 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
-                      ),
+                      style: TextStyle(fontSize: hasDiscount ? 28 : 32, fontWeight: FontWeight.bold, color: Colors.green.shade700),
                     ),
                     if (hasDiscount)
-                      Text(
-                        _getOriginalPrice(),
-                        style: const TextStyle(fontSize: 16, color: Colors.grey, decoration: TextDecoration.lineThrough),
-                      ),
+                      Text(_getOriginalPrice(), style: const TextStyle(fontSize: 16, color: Colors.grey, decoration: TextDecoration.lineThrough)),
                   ],
                 ),
               ),
               if (isLoggedIn && isInStock)
-                QuantitySelector(
-                  quantity: _quantity,
-                  onChanged: (value) => setState(() => _quantity = value),
-                  min: 1,
-                  max: product.stockQuantity.toInt(),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                      icon: const Icon(Icons.remove_circle_outline),
+                    ),
+                    Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(
+                      onPressed: _quantity < product.stockQuantity ? () => setState(() => _quantity++) : null,
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
                 ),
             ],
           ),
           const SizedBox(height: 20),
-          // أزرار الإجراءات
           if (isLoggedIn && isInStock) ...[
             Row(
               children: [
