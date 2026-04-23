@@ -1,16 +1,6 @@
-// image_service.dart
-// خدمة معالجة الصور الاحترافية مع:
-// - تحميل الصور من الإنترنت مع التخزين المؤقت
-// - تغيير الحجم والضغط (في Isolate)
-// - إنشاء كولاج (شبكة 2×2) لعدة صور
-// - دعم الصور المحلية والأصول
-// - معالجة الأخطاء وإعادة المحاولة
-// - ذاكرة مؤقتة للصور (LRU cache)
-// - تحسين الأداء باستخدام compute
-
+import 'dart:convert'; // مهم لـ base64Encode
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -288,8 +278,9 @@ class ImageService {
   // ============================================================
   static void clearCache() {
     _cache.clear();
-    // مسح كاش CachedNetworkImage
-    CachedNetworkImage.evictFromCache('');
+    // مسح كاش CachedNetworkImage بشكل صحيح
+    imageCache.clear();
+    imageCache.clearLiveImages();
   }
 
   // ============================================================
