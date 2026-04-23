@@ -27,7 +27,7 @@ class SyncService {
   final Box<Product> _productBox;
   final Connectivity _connectivity = Connectivity();
 
-  static const int _batchSize = 50; // حجم الدفعة
+  static const int _batchSize = 50;
   static const Duration _minSyncInterval = Duration(minutes: 2);
   static const int _maxRetries = 3;
   static const Duration _initialRetryDelay = Duration(seconds: 3);
@@ -93,13 +93,10 @@ class SyncService {
     _isSyncing = true;
     int inserted = 0, updated = 0;
     try {
-      // محاكاة Delta: نجلب المنتجات المحدثة منذ آخر مزامنة
-      // (يمكنك لاحقاً تمرير updated_since إلى API)
       final after = _lastSyncTime?.toIso8601String() ?? DateTime(1970).toIso8601String();
       final serverProducts = await _api.fetchProducts(
         page: 1,
         pageSize: _batchSize,
-        // يمكن إضافة filter: 'updated_at.gt.$after'
       );
 
       for (final sp in serverProducts) {
@@ -197,9 +194,7 @@ class SyncService {
   // ---------- مزامنة شاملة مع إعادة المحاولة ----------
   Future<SyncResult> syncAll() async {
     if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
-    // رفع المعلق أولاً
     await uploadPendingProducts();
-    // تنزيل التحديثات
     return await syncDelta(force: true);
   }
 
