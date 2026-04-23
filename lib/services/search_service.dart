@@ -248,7 +248,7 @@ class SearchService {
     final box = await Hive.openBox<Product>(_productsBox);
     for (final product in products) {
       final existing = box.get(product.sku);
-      if (existing == null || existing.lastUpdated.isBefore(product.lastUpdated)) {
+      if (existing == null || existing.updatedAt.isBefore(product.updatedAt)) {
         await box.put(product.sku, product);
       }
     }

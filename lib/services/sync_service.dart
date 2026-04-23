@@ -107,7 +107,7 @@ class SyncService {
         if (local == null) {
           await _productBox.put(sp.sku, sp);
           inserted++;
-        } else if (local.lastUpdated.isBefore(sp.lastUpdated)) {
+        } else if (local.updatedAt.isBefore(sp.updatedAt)) {
           await _productBox.put(sp.sku, sp);
           updated++;
         }
@@ -138,7 +138,7 @@ class SyncService {
           if (local == null) {
             await _productBox.put(sp.sku, sp);
             inserted++;
-          } else if (local.lastUpdated.isBefore(sp.lastUpdated)) {
+          } else if (local.updatedAt.isBefore(sp.updatedAt)) {
             await _productBox.put(sp.sku, sp);
             updated++;
           }
