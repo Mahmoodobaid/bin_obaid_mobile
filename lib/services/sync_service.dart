@@ -29,12 +29,9 @@ class SyncService {
 
   static const int _batchSize = 50;
   static const Duration _minSyncInterval = Duration(minutes: 2);
-  static const int _maxRetries = 3;
-  static const Duration _initialRetryDelay = Duration(seconds: 3);
 
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
-  Timer? _retryTimer;
   StreamSubscription? _connectivitySubscription;
 
   SyncService(this._api, this._productBox) {
@@ -76,7 +73,6 @@ class SyncService {
   // ---------- المزامنة التدريجية (Delta) ----------
   Future<SyncResult> syncDelta({bool force = false}) async {
     if (_isSyncing) {
-      debugPrint('Sync already in progress');
       return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
     }
     if (!await _hasInternet()) {
@@ -93,11 +89,7 @@ class SyncService {
     _isSyncing = true;
     int inserted = 0, updated = 0;
     try {
-      final after = _lastSyncTime?.toIso8601String() ?? DateTime(1970).toIso8601String();
-      final serverProducts = await _api.fetchProducts(
-        page: 1,
-        pageSize: _batchSize,
-      );
+      final serverProducts = await _api.fetchProducts(page: 1, pageSize: _batchSize);
 
       for (final sp in serverProducts) {
         final local = _productBox.get(sp.sku);
@@ -119,7 +111,7 @@ class SyncService {
     }
   }
 
-  // ---------- المزامنة الكاملة (Full) مع Pagination ----------
+  // ---------- المزامنة الكاملة (Full) ----------
   Future<SyncResult> fullSync() async {
     if (_isSyncing) return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
     if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
@@ -153,64 +145,27 @@ class SyncService {
     }
   }
 
-  // ---------- رفع المنتجات المعلقة ----------
+  // ---------- رفع المنتجات المعلقة (تمت إزالة الجزء الذي ينشئ Product يدوياً) ----------
   Future<SyncResult> uploadPendingProducts() async {
     if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
     final pending = _productBox.values.where((p) => p.syncStatus == 'pending').toList();
     if (pending.isEmpty) return const SyncResult(success: true);
-    int uploaded = 0, failed = 0;
+    int uploaded = 0;
     for (int i = 0; i < pending.length; i += _batchSize) {
       final batch = pending.skip(i).take(_batchSize).toList();
       try {
-        final list = batch.map((p) => p.toJson()).toList();
-        await _api.importProductsBatch(list);
+        await _api.importProductsBatch(batch.map((p) => p.toJson()).toList());
         for (final p in batch) {
-          final existing = _productBox.get(p.sku);
-          if (existing != null) {
-            final updated = Product(
-              sku: existing.sku,
-              name: existing.name,
-              category: existing.category,
-              unit: existing.unit,
-              unitPrice: existing.unitPrice,
-              stockQuantity: existing.stockQuantity,
-              imageUrls: existing.imageUrls,
-              updatedAt: DateTime.now(), createdAt: DateTime.now(),
-              syncStatus: 'synced',
-            );
-            await _productBox.put(existing.sku, updated);
-            uploaded++;
-          }
+          p.syncStatus = 'synced';
+          await _productBox.put(p.sku, p);
+          uploaded++;
         }
       } catch (e) {
         debugPrint('Failed to upload batch: $e');
-        failed += batch.length;
       }
       await Future.delayed(const Duration(milliseconds: 300));
     }
     return SyncResult(success: true, inserted: uploaded, updated: 0);
-  }
-
-  // ---------- مزامنة شاملة مع إعادة المحاولة ----------
-  Future<SyncResult> syncAll() async {
-    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
-    await uploadPendingProducts();
-    return await syncDelta(force: true);
-  }
-
-  // ---------- إعادة المحاولة الذكية ----------
-  Future<SyncResult> syncWithRetry() async {
-    int attempts = 0;
-    Duration delay = _initialRetryDelay;
-    while (attempts < _maxRetries) {
-      final result = await syncAll();
-      if (result.success) return result;
-      attempts++;
-      debugPrint('Retry $attempts in ${delay.inSeconds}s');
-      await Future.delayed(delay);
-      delay *= 2;
-    }
-    return const SyncResult(success: false, error: 'فشلت كل المحاولات');
   }
 
   // ---------- حالة المزامنة ----------
@@ -219,6 +174,5 @@ class SyncService {
 
   void dispose() {
     _connectivitySubscription?.cancel();
-    _retryTimer?.cancel();
   }
 }
