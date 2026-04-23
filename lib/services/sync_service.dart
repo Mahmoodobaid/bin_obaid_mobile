@@ -1,77 +1,52 @@
-// sync_service.dart
-// خدمة مزامنة احترافية مع:
-// - مزامنة تدريجية (Delta Sync) باستخدام updated_at
-// - مزامنة كاملة (Full Sync) مع Pagination
-// - دعم Supabase كخادم
-// - إعادة محاولة ذكية (exponential backoff)
-// - التعامل مع الانقطاع واستئناف المزامنة
-// - منع المزامنة المتزامنة المتعددة
-// - حفظ آخر وقت مزامنة بنجاح
-// - معالجة الأخطاء وتصنيفها
-// - مراقبة حالة الإنترنت والتحديث في الخلفية
-// sync_service.dart
-// خدمة مزامنة احترافية - نسخة خالية من الأخطاء
-// تمت إضافة import 'package:flutter/foundation.dart' لاستخدام debugPrint
-
+import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_model.dart';
-import 'search_service.dart';
+import 'api_service.dart';
 
+/// نتيجة عملية المزامنة
 class SyncResult {
   final bool success;
   final int inserted;
   final int updated;
-  final int deleted;
   final String? error;
 
-  SyncResult({
+  const SyncResult({
     required this.success,
     this.inserted = 0,
     this.updated = 0,
-    this.deleted = 0,
     this.error,
   });
-
-  factory SyncResult.success({int inserted = 0, int updated = 0, int deleted = 0}) {
-    return SyncResult(success: true, inserted: inserted, updated: updated, deleted: deleted);
-  }
-
-  factory SyncResult.failure(String error) {
-    return SyncResult(success: false, error: error);
-  }
 }
 
+/// خدمة مزامنة احترافية مع دعم API الداخلي
 class SyncService {
-  final SupabaseClient _supabase;
+  final ApiService _api;
   final Box<Product> _productBox;
   final Connectivity _connectivity = Connectivity();
-  final String _tableName = 'products';
 
-  static const int _batchSize = 100;
+  static const int _batchSize = 50; // حجم الدفعة
+  static const Duration _minSyncInterval = Duration(minutes: 2);
   static const int _maxRetries = 3;
-  static const Duration _initialRetryDelay = Duration(seconds: 2);
-  static const Duration _syncCooldown = Duration(minutes: 5);
+  static const Duration _initialRetryDelay = Duration(seconds: 3);
 
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
   Timer? _retryTimer;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  final Set<String> _syncingSkus = {};
+  StreamSubscription? _connectivitySubscription;
 
-  SyncService(this._supabase, this._productBox) {
+  SyncService(this._api, this._productBox) {
     _loadLastSyncTime();
     _monitorConnectivity();
   }
 
+  // ---------- إدارة وقت المزامنة ----------
   Future<void> _loadLastSyncTime() async {
     final prefs = await SharedPreferences.getInstance();
-    final timestamp = prefs.getString('last_sync_time');
-    if (timestamp != null) {
-      _lastSyncTime = DateTime.tryParse(timestamp);
-    }
+    final ts = prefs.getString('last_sync_time');
+    if (ts != null) _lastSyncTime = DateTime.tryParse(ts);
   }
 
   Future<void> _saveLastSyncTime(DateTime time) async {
@@ -80,176 +55,173 @@ class SyncService {
     _lastSyncTime = time;
   }
 
+  // ---------- مراقبة الاتصال ----------
   void _monitorConnectivity() {
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((result) {
-      final isConnected = result != ConnectivityResult.none;
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((results) {
+      final isConnected = results.any((r) => r != ConnectivityResult.none);
       if (isConnected && _lastSyncTime != null) {
         final diff = DateTime.now().difference(_lastSyncTime!);
-        if (diff > _syncCooldown) {
-          syncDelta().then((_) => debugPrint('Auto-sync after connection restored'));
+        if (diff > _minSyncInterval) {
+          syncDelta().then((_) => debugPrint('Auto-sync completed'));
         }
       }
     });
   }
 
-  Future<bool> _checkConnectivity() async {
-    final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+  Future<bool> _hasInternet() async {
+    final results = await _connectivity.checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
   }
 
+  // ---------- المزامنة التدريجية (Delta) ----------
   Future<SyncResult> syncDelta({bool force = false}) async {
     if (_isSyncing) {
-      debugPrint('Sync already in progress, skipping...');
-      return SyncResult.failure('Sync already in progress');
+      debugPrint('Sync already in progress');
+      return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
     }
-    if (!await _checkConnectivity()) return SyncResult.failure('No internet connection');
+    if (!await _hasInternet()) {
+      return const SyncResult(success: false, error: 'لا يوجد إنترنت');
+    }
     if (!force && _lastSyncTime != null) {
       final diff = DateTime.now().difference(_lastSyncTime!);
-      if (diff < _syncCooldown) {
-        debugPrint('Sync skipped: last sync was ${diff.inMinutes} minutes ago');
-        return SyncResult.success();
+      if (diff < _minSyncInterval) {
+        debugPrint('Skipping sync – last sync was ${diff.inMinutes} min ago');
+        return const SyncResult(success: true);
       }
     }
 
     _isSyncing = true;
-    int inserted = 0;
-    int updated = 0;
-
+    int inserted = 0, updated = 0;
     try {
-      final afterTime = _lastSyncTime?.toIso8601String() ?? DateTime(1970).toIso8601String();
-      final response = await _supabase
-          .from(_tableName)
-          .select()
-          .gt('updated_at', afterTime)
-          .order('updated_at', ascending: true)
-          .limit(_batchSize)
-          .timeout(const Duration(seconds: 30));
+      // محاكاة Delta: نجلب المنتجات المحدثة منذ آخر مزامنة
+      // (يمكنك لاحقاً تمرير updated_since إلى API)
+      final after = _lastSyncTime?.toIso8601String() ?? DateTime(1970).toIso8601String();
+      final serverProducts = await _api.fetchProducts(
+        page: 1,
+        pageSize: _batchSize,
+        // يمكن إضافة filter: 'updated_at.gt.$after'
+      );
 
-      final List<dynamic> data = response;
-      debugPrint('Delta sync: fetched ${data.length} items');
-
-      for (var json in data) {
-        final serverProduct = Product.fromJson(json as Map<String, dynamic>);
-        final localProduct = _productBox.get(serverProduct.sku);
-        if (localProduct == null) {
-          await _productBox.put(serverProduct.sku, serverProduct);
+      for (final sp in serverProducts) {
+        final local = _productBox.get(sp.sku);
+        if (local == null) {
+          await _productBox.put(sp.sku, sp);
           inserted++;
-        } else if (localProduct.updatedAt.isBefore(serverProduct.updatedAt)) {
-          await _productBox.put(serverProduct.sku, serverProduct);
+        } else if (local.lastUpdated.isBefore(sp.lastUpdated)) {
+          await _productBox.put(sp.sku, sp);
           updated++;
         }
       }
-
       await _saveLastSyncTime(DateTime.now());
-      return SyncResult.success(inserted: inserted, updated: updated);
+      return SyncResult(success: true, inserted: inserted, updated: updated);
     } catch (e) {
       debugPrint('Delta sync error: $e');
-      return SyncResult.failure(e.toString());
+      return SyncResult(success: false, error: e.toString());
     } finally {
       _isSyncing = false;
     }
   }
 
+  // ---------- المزامنة الكاملة (Full) مع Pagination ----------
   Future<SyncResult> fullSync() async {
-    if (_isSyncing) return SyncResult.failure('Sync already in progress');
-    if (!await _checkConnectivity()) return SyncResult.failure('No internet connection');
+    if (_isSyncing) return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
+    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
 
     _isSyncing = true;
-    int inserted = 0;
-    int updated = 0;
-    int page = 0;
-
+    int inserted = 0, updated = 0, page = 1;
     try {
       while (true) {
-        final from = page * _batchSize;
-        final to = from + _batchSize - 1;
-        final response = await _supabase
-            .from(_tableName)
-            .select()
-            .range(from, to)
-            .order('sku', ascending: true)
-            .timeout(const Duration(seconds: 30));
-
-        final List<dynamic> data = response;
-        if (data.isEmpty) break;
-
-        for (var json in data) {
-          final serverProduct = Product.fromJson(json as Map<String, dynamic>);
-          final localProduct = _productBox.get(serverProduct.sku);
-          if (localProduct == null) {
-            await _productBox.put(serverProduct.sku, serverProduct);
+        final products = await _api.fetchProducts(page: page, pageSize: _batchSize);
+        if (products.isEmpty) break;
+        for (final sp in products) {
+          final local = _productBox.get(sp.sku);
+          if (local == null) {
+            await _productBox.put(sp.sku, sp);
             inserted++;
-          } else if (localProduct.updatedAt.isBefore(serverProduct.updatedAt)) {
-            await _productBox.put(serverProduct.sku, serverProduct);
+          } else if (local.lastUpdated.isBefore(sp.lastUpdated)) {
+            await _productBox.put(sp.sku, sp);
             updated++;
           }
         }
         page++;
-        debugPrint('Full sync: page $page completed');
+        debugPrint('Full sync page $page done');
       }
-
       await _saveLastSyncTime(DateTime.now());
-      return SyncResult.success(inserted: inserted, updated: updated);
+      return SyncResult(success: true, inserted: inserted, updated: updated);
     } catch (e) {
       debugPrint('Full sync error: $e');
-      return SyncResult.failure(e.toString());
+      return SyncResult(success: false, error: e.toString());
     } finally {
       _isSyncing = false;
     }
   }
 
+  // ---------- رفع المنتجات المعلقة ----------
   Future<SyncResult> uploadPendingProducts() async {
-    if (!await _checkConnectivity()) return SyncResult.failure('No internet connection');
-    int uploaded = 0;
-    int failed = 0;
+    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
     final pending = _productBox.values.where((p) => p.syncStatus == 'pending').toList();
-
-    for (var product in pending) {
-      if (_syncingSkus.contains(product.sku)) continue;
-      _syncingSkus.add(product.sku);
+    if (pending.isEmpty) return const SyncResult(success: true);
+    int uploaded = 0, failed = 0;
+    for (int i = 0; i < pending.length; i += _batchSize) {
+      final batch = pending.skip(i).take(_batchSize).toList();
       try {
-        await _supabase.from(_tableName).upsert(product.toJson()).timeout(const Duration(seconds: 15));
-        final updatedProduct = product.copyWith(syncStatus: 'synced', updatedAt: DateTime.now());
-        await _productBox.put(product.sku, updatedProduct);
-        uploaded++;
+        final list = batch.map((p) => p.toJson()).toList();
+        await _api.importProductsBatch(list);
+        for (final p in batch) {
+          final existing = _productBox.get(p.sku);
+          if (existing != null) {
+            final updated = Product(
+              sku: existing.sku,
+              name: existing.name,
+              category: existing.category,
+              unit: existing.unit,
+              unitPrice: existing.unitPrice,
+              stockQuantity: existing.stockQuantity,
+              imageUrls: existing.imageUrls,
+              lastUpdated: DateTime.now(),
+              syncStatus: 'synced',
+            );
+            await _productBox.put(existing.sku, updated);
+            uploaded++;
+          }
+        }
       } catch (e) {
-        debugPrint('Failed to upload product ${product.sku}: $e');
-        failed++;
-      } finally {
-        _syncingSkus.remove(product.sku);
+        debugPrint('Failed to upload batch: $e');
+        failed += batch.length;
       }
+      await Future.delayed(const Duration(milliseconds: 300));
     }
-    return SyncResult.success(inserted: uploaded, updated: 0);
+    return SyncResult(success: true, inserted: uploaded, updated: 0);
   }
 
-  Future<SyncResult> bidirectionalSync() async {
-    if (!await _checkConnectivity()) return SyncResult.failure('No internet');
-    final uploadResult = await uploadPendingProducts();
-    final downloadResult = await syncDelta();
-    return SyncResult.success(
-      inserted: downloadResult.inserted,
-      updated: downloadResult.updated + uploadResult.inserted,
-    );
+  // ---------- مزامنة شاملة مع إعادة المحاولة ----------
+  Future<SyncResult> syncAll() async {
+    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
+    // رفع المعلق أولاً
+    await uploadPendingProducts();
+    // تنزيل التحديثات
+    return await syncDelta(force: true);
   }
 
-  Future<SyncResult> syncWithRetry({int maxRetries = _maxRetries}) async {
-    int attempt = 0;
+  // ---------- إعادة المحاولة الذكية ----------
+  Future<SyncResult> syncWithRetry() async {
+    int attempts = 0;
     Duration delay = _initialRetryDelay;
-    while (attempt < maxRetries) {
-      final result = await bidirectionalSync();
+    while (attempts < _maxRetries) {
+      final result = await syncAll();
       if (result.success) return result;
-      attempt++;
-      if (attempt >= maxRetries) break;
-      debugPrint('Sync failed, retry $attempt after ${delay.inSeconds}s');
+      attempts++;
+      debugPrint('Retry $attempts in ${delay.inSeconds}s');
       await Future.delayed(delay);
-      delay = delay * 2;
+      delay *= 2;
     }
-    return SyncResult.failure('Sync failed after $maxRetries attempts');
+    return const SyncResult(success: false, error: 'فشلت كل المحاولات');
   }
 
+  // ---------- حالة المزامنة ----------
   bool get isSyncing => _isSyncing;
   DateTime? get lastSyncTime => _lastSyncTime;
-  void cancelSync() => _isSyncing = false;
+
   void dispose() {
     _connectivitySubscription?.cancel();
     _retryTimer?.cancel();
