@@ -175,7 +175,7 @@ class SyncService {
               unitPrice: existing.unitPrice,
               stockQuantity: existing.stockQuantity,
               imageUrls: existing.imageUrls,
-              updatedAt: DateTime.now(),
+              updatedAt: DateTime.now(), createdAt: DateTime.now(),
               syncStatus: 'synced',
             );
             await _productBox.put(existing.sku, updated);
