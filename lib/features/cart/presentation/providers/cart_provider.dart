@@ -1,8 +1,4 @@
-// cart_provider.dart
-// مزود حالة سلة التسوق - نسخة احترافية نهائية
-// يدعم: إدارة العناصر، الخصومات، أسعار الجملة، التخزين المحلي (Hive/SharedPreferences)،
-// إعادة الحساب التلقائي، دعم وحدات القياس، وتطبيق كوبونات الخصم.
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,13 +6,10 @@ import '../../../../models/product_model.dart';
 import '../../../../models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
-// -------------------------------------------
-// 1. نموذج عنصر السلة (مع دعم الخصم الفردي)
-// -------------------------------------------
 class CartItem {
   final Product product;
   int quantity;
-  double? customDiscount; // خصم إضافي على هذا المنتج فقط (نسبة مئوية 0-100)
+  double? customDiscount;
 
   CartItem({
     required this.product,
@@ -24,39 +17,15 @@ class CartItem {
     this.customDiscount,
   });
 
-  /// السعر الفعلي للمنتج بعد مراعاة:
-  /// - دور المستخدم (جملة / تجزئة)
-  /// - الخصم المخصص للمنتج
   double get effectivePrice {
     double basePrice = product.unitPrice;
-    final user = _getCurrentUser(); // نحتاج لطريقة للحصول على المستخدم الحالي
-    if (user != null && user.role == 'customer' && product.wholesalePrice != null) {
-      basePrice = product.wholesalePrice!;
-    }
     if (customDiscount != null && customDiscount! > 0) {
       return basePrice * (1 - customDiscount! / 100);
     }
     return basePrice;
   }
 
-  /// إجمالي سعر هذا العنصر (السعر الفعلي × الكمية)
   double get totalPrice => effectivePrice * quantity;
-
-  /// وصف السعر المعروض
-  String get priceDisplay {
-    final user = _getCurrentUser();
-    final isWholesale = (user?.role == 'customer' && product.wholesalePrice != null);
-    if (isWholesale) {
-      return '${product.wholesalePrice!.toStringAsFixed(2)} ريال (جملة)';
-    }
-    return '${product.unitPrice.toStringAsFixed(2)} ريال';
-  }
-
-  // مؤقت للحصول على المستخدم (سيتم استبداله بحل أفضل)
-  UserModel? _getCurrentUser() {
-    // سيتم تمرير المستخدم من الخارج بدلاً من هذا
-    return null;
-  }
 
   Map<String, dynamic> toJson() => {
         'sku': product.sku,
@@ -73,13 +42,10 @@ class CartItem {
   }
 }
 
-// -------------------------------------------
-// 2. حالة السلة
-// -------------------------------------------
 class CartState {
   final List<CartItem> items;
   final String? couponCode;
-  final double couponDiscountPercent; // نسبة الخصم من الكوبون (0-100)
+  final double couponDiscountPercent;
   final bool isLoading;
 
   CartState({
@@ -89,25 +55,12 @@ class CartState {
     this.isLoading = false,
   });
 
-  /// عدد العناصر الفريدة
   int get uniqueItemsCount => items.length;
-
-  /// إجمالي عدد القطع (مجموع الكميات)
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
-
-  /// المجموع الفرعي (قبل خصم الكوبون)
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.totalPrice);
-
-  /// قيمة الخصم من الكوبون
   double get couponDiscountValue => subtotal * (couponDiscountPercent / 100);
-
-  /// الإجمالي النهائي بعد خصم الكوبون
   double get total => subtotal - couponDiscountValue;
-
-  /// هل السلة فارغة؟
   bool get isEmpty => items.isEmpty;
-
-  /// هل السلة غير فارغة؟
   bool get isNotEmpty => items.isNotEmpty;
 
   CartState copyWith({
@@ -125,16 +78,10 @@ class CartState {
   }
 }
 
-// -------------------------------------------
-// 3. مفتاح الوصول إلى Hive لتخزين السلة
-// -------------------------------------------
 const String _cartBoxName = 'cart_box';
 const String _cartKey = 'cart_data';
 const String _couponKey = 'coupon_data';
 
-// -------------------------------------------
-// 4. الـ Notifier الخاص بالسلة
-// -------------------------------------------
 class CartNotifier extends StateNotifier<CartState> {
   late final Box _cartBox;
   final Ref _ref;
@@ -143,12 +90,6 @@ class CartNotifier extends StateNotifier<CartState> {
     _loadCartFromStorage();
   }
 
-  // الحصول على المستخدم الحالي من الـ Provider
-  UserModel? get _currentUser => _ref.read(authProvider).currentUser;
-
-  // -----------------------------------------
-  // 4.1 التخزين المحلي (Hive)
-  // -----------------------------------------
   Future<void> _loadCartFromStorage() async {
     try {
       state = state.copyWith(isLoading: true);
@@ -195,15 +136,11 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  // -----------------------------------------
-  // 4.2 إدارة العناصر
-  // -----------------------------------------
   void addItem(Product product, {int quantity = 1, double? customDiscount}) {
     final existingIndex = state.items.indexWhere((item) => item.product.sku == product.sku);
     final newItems = List<CartItem>.from(state.items);
 
     if (existingIndex != -1) {
-      // موجود: زيادة الكمية
       final item = newItems[existingIndex];
       newItems[existingIndex] = CartItem(
         product: item.product,
@@ -211,7 +148,6 @@ class CartNotifier extends StateNotifier<CartState> {
         customDiscount: customDiscount ?? item.customDiscount,
       );
     } else {
-      // غير موجود: إضافة جديد
       newItems.add(CartItem(
         product: product,
         quantity: quantity,
@@ -294,24 +230,13 @@ class CartNotifier extends StateNotifier<CartState> {
     _saveCartToStorage();
   }
 
-  // -----------------------------------------
-  // 4.3 كوبون الخصم
-  // -----------------------------------------
   Future<bool> applyCoupon(String code) async {
-    // هنا يمكن الاتصال بـ API للتحقق من صحة الكوبون
-    // مثال: إذا كان الكوبون "SAVE10" يمنح خصم 10%
     if (code.trim().toUpperCase() == 'SAVE10') {
-      state = state.copyWith(
-        couponCode: code.toUpperCase(),
-        couponDiscountPercent: 10.0,
-      );
+      state = state.copyWith(couponCode: code.toUpperCase(), couponDiscountPercent: 10.0);
       _saveCartToStorage();
       return true;
     } else if (code.trim().toUpperCase() == 'WELCOME20') {
-      state = state.copyWith(
-        couponCode: code.toUpperCase(),
-        couponDiscountPercent: 20.0,
-      );
+      state = state.copyWith(couponCode: code.toUpperCase(), couponDiscountPercent: 20.0);
       _saveCartToStorage();
       return true;
     }
@@ -323,12 +248,7 @@ class CartNotifier extends StateNotifier<CartState> {
     _saveCartToStorage();
   }
 
-  // -----------------------------------------
-  // 4.4 إعادة حساب الأسعار عند تغيير دور المستخدم
-  // (يُستدعى عند تغيير المستخدم)
-  // -----------------------------------------
   void refreshPrices() {
-    // إعادة إنشاء العناصر بنفس الكميات والخصومات الفردية
     final newItems = state.items.map((item) {
       return CartItem(
         product: item.product,
@@ -341,18 +261,11 @@ class CartNotifier extends StateNotifier<CartState> {
   }
 }
 
-// -------------------------------------------
-// 5. الـ Provider النهائي
-// -------------------------------------------
 final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
   return CartNotifier(ref);
 });
 
-// -------------------------------------------
-// 6. دوال مساعدة للاستخدام السهل في الـ UI
-// -------------------------------------------
 extension CartStateExtension on CartState {
-  /// الحصول على عنصر محدد بواسطة SKU
   CartItem? getItemBySku(String sku) {
     try {
       return items.firstWhere((item) => item.product.sku == sku);
@@ -361,10 +274,8 @@ extension CartStateExtension on CartState {
     }
   }
 
-  /// هل المنتج موجود في السلة؟
   bool containsSku(String sku) => items.any((item) => item.product.sku == sku);
 
-  /// كمية منتج معين
   int quantityOf(String sku) {
     final item = getItemBySku(sku);
     return item?.quantity ?? 0;
