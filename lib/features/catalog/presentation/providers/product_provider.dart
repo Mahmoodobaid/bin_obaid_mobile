@@ -126,7 +126,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
       return;
     }
     _cachedQuery = state.currentQuery;
-    final results = SearchService.searchInBox(_box, state.currentQuery);
+    final results = SearchService.searchLocal(state.allProducts, state.currentQuery);
     _cachedSearchResults = results;
     state = state.copyWith(items: results);
   }
@@ -138,13 +138,13 @@ class ProductNotifier extends StateNotifier<ProductState> {
     if (forceFull || state.lastSyncTime == null) {
       result = await _syncService!.fullSync();
     } else {
-      result = await _syncService!.syncDelta(state.lastSyncTime);
+      result = await _syncService!.syncDelta(force: true);
     }
     if (result.success) {
       await loadMore(reset: true);
       state = state.copyWith(isSyncing: false, syncProgress: 1.0, lastSyncTime: DateTime.now());
       Future.delayed(const Duration(seconds: 1), () {
-        state = state.copyWith(syncProgress: 0.0);
+        if (mounted) state = state.copyWith(syncProgress: 0.0);
       });
     } else {
       state = state.copyWith(isSyncing: false, syncError: result.error);
