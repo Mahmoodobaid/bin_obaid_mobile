@@ -11,12 +11,6 @@ import '../../../../services/sync_service.dart';
 import '../../../../services/search_service.dart';
 import '../../../../services/local_storage_service.dart';
 
-// -------------------------------------------
-// 1. مزود الخدمات الأساسية
-// -------------------------------------------
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final box = Hive.box<Product>('products');
   return SyncService(ref.read(apiServiceProvider).supabase, box);
 });
 final searchServiceProvider = Provider<SearchService>((ref) {
@@ -148,7 +142,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
   Future<void> _init() async {
     try {
       _productBox = await Hive.openBox<Product>('products');
-      _syncService = _ref.read(syncServiceProvider);
+      _syncService = SyncService(_ref.read(apiServiceProvider), _productBox);
       _searchService = _ref.read(searchServiceProvider);
 
       // تحميل آخر وقت مزامنة من التخزين المحلي
