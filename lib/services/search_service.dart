@@ -1,19 +1,3 @@
-// search_service.dart
-// خدمة بحث احترافية وكاملة مع:
-// - تطبيع متقدم للنصوص العربية والأرقام
-// - بحث Fuzzy (Levenshtein) مع ترتيب حسب الصلة
-// - دعم البحث غير المرتب (unordered)
-// - فهرسة باستخدام searchTokens من Product
-// - ذاكرة مؤقتة ذكية مع TTL
-// - Debounce متغير حسب طول النص
-// - البحث المحلي أولاً (Hive) ثم عن بعد (Supabase)
-// - تحديث الخلفية للنتائج من الخادم
-// - استخدام Isolate (compute) للمعالجات الثقيلة
-// - دعم الأخطاء الإملائية والتشكيل
-// search_service.dart
-// خدمة بحث احترافية - نسخة خالية من الأخطاء
-// تم إضافة الدالة _generateSearchableText والثابت _cacheTtlSeconds
-
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -33,7 +17,6 @@ class SearchService {
   Timer? _debounceTimer;
   bool _isOffline = false;
   final Connectivity _connectivity = Connectivity();
-  final Set<String> _pendingRemoteQueries = {};
 
   SearchService(this._api) {
     _initConnectivity();
@@ -54,6 +37,7 @@ class SearchService {
 
   bool get isOffline => _isOffline;
 
+  // ---------- بحث مع debounce ----------
   void debounceSearch(String query, Function(List<Product>) onResults, {int limit = _defaultLimit}) {
     _debounceTimer?.cancel();
     final delay = query.length < 3 ? 500 : 200;
@@ -63,36 +47,45 @@ class SearchService {
     });
   }
 
+  // ---------- البحث الرئيسي (محلي ثم خادم) ----------
   Future<List<Product>> search(String query, {int limit = _defaultLimit}) async {
     final normalized = _normalizeText(query);
     if (normalized.length < _minQueryLength) return [];
 
+    // تحقق من الكاش
     final cached = _getFromCache(normalized);
     if (cached != null) return cached.take(limit).toList();
 
+    // البحث المحلي أولاً
     final localResults = await _searchLocal(normalized, limit: limit);
-    if (!_isOffline && !_pendingRemoteQueries.contains(normalized)) {
-      _pendingRemoteQueries.add(normalized);
-      _searchRemoteAndUpdateLocal(normalized, limit: limit).then((_) {
-        _pendingRemoteQueries.remove(normalized);
-      });
+
+    // إذا كان متصلاً، ابحث على الخادم وحدث المحلي بصمت
+    if (!_isOffline) {
+      _searchRemoteAndUpdateLocal(normalized, limit: limit); // لا ننتظر
     }
+
+    // أرجع النتائج المحلية (قد تكون قديمة) إن وجدت، وإلا انتظر الخادم
     if (localResults.isNotEmpty) {
       _updateCache(normalized, localResults);
       return localResults.take(limit).toList();
     }
+
     if (!_isOffline) {
       final remoteResults = await _searchRemote(normalized, limit: limit);
       _updateCache(normalized, remoteResults);
       return remoteResults.take(limit).toList();
     }
+
     return [];
   }
 
+  // ---------- البحث المحلي في Hive ----------
   Future<List<Product>> _searchLocal(String normalizedQuery, {int limit = _defaultLimit}) async {
     try {
       final box = await Hive.openBox<Product>(_productsBox);
       final allProducts = box.values.toList();
+
+      // إذا كان عدد المنتجات كبيراً، استخدم Isolate لتجنب تجميد UI
       if (allProducts.length > 500) {
         return await compute(_searchLocalIsolate, _SearchParams(allProducts, normalizedQuery, limit));
       } else {
@@ -104,46 +97,58 @@ class SearchService {
     }
   }
 
+  // دالة ثابتة لتعمل داخل compute
   static List<Product> _searchLocalIsolate(_SearchParams params) {
     return _performLocalSearchStatic(params.products, params.query, params.limit);
   }
 
+  // نسخة ثابتة من البحث المحلي
   static List<Product> _performLocalSearchStatic(List<Product> products, String query, int limit) {
     final queryTokens = query.split(' ').where((t) => t.isNotEmpty).toList();
     final scores = <Product, double>{};
+
     for (final product in products) {
-      final searchableText = product.searchTokens ?? _generateSearchableTextStatic(product);
+      final searchableText = _buildSearchableTextStatic(product);
       final score = _calculateRelevanceScoreStatic(searchableText, queryTokens);
       if (score > 0.1) scores[product] = score;
     }
-    final sorted = scores.keys.toList()..sort((a, b) => scores[b]!.compareTo(scores[a]!));
+
+    final sorted = scores.keys.toList()
+      ..sort((a, b) => scores[b]!.compareTo(scores[a]!));
     return sorted.take(limit).toList();
   }
 
+  // نسخة عادية للبحث إذا لم نستخدم compute
   List<Product> _performLocalSearch(List<Product> products, String query, int limit) {
     final queryTokens = query.split(' ').where((t) => t.isNotEmpty).toList();
     final scores = <Product, double>{};
+
     for (final product in products) {
-      final searchableText = product.searchTokens ?? _generateSearchableText(product);
+      final searchableText = _buildSearchableText(product);
       final score = _calculateRelevanceScore(searchableText, queryTokens);
       if (score > 0.1) scores[product] = score;
     }
-    final sorted = scores.keys.toList()..sort((a, b) => scores[b]!.compareTo(scores[a]!));
+
+    final sorted = scores.keys.toList()
+      ..sort((a, b) => scores[b]!.compareTo(scores[a]!));
     return sorted.take(limit).toList();
   }
 
-  String _generateSearchableText(Product product) {
-    return '${product.name} ${product.sku} ${product.barcode ?? ''} ${product.category ?? ''} ${product.description ?? ''}'.toLowerCase();
+  // بناء النص القابل للبحث من المنتج
+  String _buildSearchableText(Product product) {
+    return '${product.name} ${product.sku} ${product.category}'.toLowerCase();
   }
 
-  static String _generateSearchableTextStatic(Product product) {
-    return '${product.name} ${product.sku} ${product.barcode ?? ''} ${product.category ?? ''} ${product.description ?? ''}'.toLowerCase();
+  static String _buildSearchableTextStatic(Product product) {
+    return '${product.name} ${product.sku} ${product.category}'.toLowerCase();
   }
 
+  // حساب درجة الصلة لمجموعة كلمات استعلام مقابل نص معين
   double _calculateRelevanceScore(String text, List<String> queryTokens) {
     if (queryTokens.isEmpty) return 0.0;
     final textTokens = text.split(' ').toSet();
     double totalScore = 0.0;
+
     for (final qToken in queryTokens) {
       double bestMatch = 0.0;
       for (final tToken in textTokens) {
@@ -161,6 +166,7 @@ class SearchService {
     if (queryTokens.isEmpty) return 0.0;
     final textTokens = text.split(' ').toSet();
     double totalScore = 0.0;
+
     for (final qToken in queryTokens) {
       double bestMatch = 0.0;
       for (final tToken in textTokens) {
@@ -174,6 +180,7 @@ class SearchService {
     return totalScore / queryTokens.length;
   }
 
+  // خوارزمية Levenshtein
   static int _levenshteinDistance(String a, String b) {
     if (a.isEmpty) return b.length;
     if (b.isEmpty) return a.length;
@@ -212,6 +219,7 @@ class SearchService {
     return matrix[a.length][b.length];
   }
 
+  // ---------- البحث على الخادم ----------
   Future<List<Product>> _searchRemote(String normalizedQuery, {int limit = _defaultLimit}) async {
     try {
       return await _api.searchProducts(query: normalizedQuery, limit: limit);
@@ -221,9 +229,10 @@ class SearchService {
     }
   }
 
+  // تشغيل بحث خادم في الخلفية وتحديث Hive
   Future<void> _searchRemoteAndUpdateLocal(String normalizedQuery, {int limit = _defaultLimit}) async {
     try {
-      final remoteResults = await _api.searchProducts(query: normalizedQuery, limit: limit);
+      final remoteResults = await _searchRemote(normalizedQuery, limit: limit);
       if (remoteResults.isNotEmpty) {
         await _updateLocalProducts(remoteResults);
         _updateCache(normalizedQuery, remoteResults);
@@ -233,17 +242,19 @@ class SearchService {
     }
   }
 
+  // تحديث المنتجات محلياً (إدراج أو تحديث بالزمن الأحدث)
   Future<void> _updateLocalProducts(List<Product> products) async {
     if (products.isEmpty) return;
     final box = await Hive.openBox<Product>(_productsBox);
     for (final product in products) {
       final existing = box.get(product.sku);
-      if (existing == null || existing.updatedAt.isBefore(product.updatedAt)) {
+      if (existing == null || existing.lastUpdated.isBefore(product.lastUpdated)) {
         await box.put(product.sku, product);
       }
     }
   }
 
+  // ---------- إدارة الكاش ----------
   List<Product>? _getFromCache(String query) {
     final cached = _cache[query];
     if (cached != null && !cached.isExpired) return cached.results;
@@ -255,17 +266,22 @@ class SearchService {
     _cache[query] = _CachedResult(results);
   }
 
+  // ---------- تطبيع النصوص العربية ----------
   static String _normalizeText(String input) {
     if (input.isEmpty) return '';
     String normalized = input;
+    // توحيد الألف والهمزات
     normalized = normalized.replaceAll(RegExp(r'[أإآ]'), 'ا');
     normalized = normalized.replaceAll('ة', 'ه');
+    // إزالة التشكيل
     normalized = normalized.replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '');
+    // تحويل الأرقام العربية إلى إنجليزية
     const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     for (int i = 0; i < arabicNumbers.length; i++) {
       normalized = normalized.replaceAll(arabicNumbers[i], englishNumbers[i]);
     }
+    // إزالة المسافات الزائدة
     normalized = normalized.trim().replaceAll(RegExp(r'\s+'), ' ');
     return normalized.toLowerCase();
   }
@@ -276,14 +292,15 @@ class SearchService {
   }
 }
 
+// فئة مساعدة للكاش
 class _CachedResult {
   final List<Product> results;
   final DateTime timestamp;
-  static const int _cacheTtlSeconds = 300;
   _CachedResult(this.results) : timestamp = DateTime.now();
-  bool get isExpired => DateTime.now().difference(timestamp).inSeconds > _cacheTtlSeconds;
+  bool get isExpired => DateTime.now().difference(timestamp).inSeconds > 300;
 }
 
+// معاملات compute
 class _SearchParams {
   final List<Product> products;
   final String query;
