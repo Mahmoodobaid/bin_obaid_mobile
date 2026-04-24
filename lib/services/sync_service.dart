@@ -6,30 +6,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_model.dart';
 import 'api_service.dart';
 
-/// نتيجة عملية المزامنة
 class SyncResult {
   final bool success;
   final int inserted;
   final int updated;
   final String? error;
-
-  const SyncResult({
-    required this.success,
-    this.inserted = 0,
-    this.updated = 0,
-    this.error,
-  });
+  const SyncResult({required this.success, this.inserted = 0, this.updated = 0, this.error});
 }
 
-/// خدمة مزامنة احترافية مع دعم API الداخلي
 class SyncService {
   final ApiService _api;
   final Box<Product> _productBox;
   final Connectivity _connectivity = Connectivity();
-
   static const int _batchSize = 50;
   static const Duration _minSyncInterval = Duration(minutes: 2);
-
   bool _isSyncing = false;
   DateTime? _lastSyncTime;
   StreamSubscription? _connectivitySubscription;
@@ -39,7 +29,6 @@ class SyncService {
     _monitorConnectivity();
   }
 
-  // ---------- إدارة وقت المزامنة ----------
   Future<void> _loadLastSyncTime() async {
     final prefs = await SharedPreferences.getInstance();
     final ts = prefs.getString('last_sync_time');
@@ -52,15 +41,12 @@ class SyncService {
     _lastSyncTime = time;
   }
 
-  // ---------- مراقبة الاتصال ----------
   void _monitorConnectivity() {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((results) {
       final isConnected = results.any((r) => r != ConnectivityResult.none);
       if (isConnected && _lastSyncTime != null) {
         final diff = DateTime.now().difference(_lastSyncTime!);
-        if (diff > _minSyncInterval) {
-          syncDelta().then((_) => debugPrint('Auto-sync completed'));
-        }
+        if (diff > _minSyncInterval) syncDelta().then((_) => debugPrint('Auto-sync completed'));
       }
     });
   }
@@ -70,14 +56,9 @@ class SyncService {
     return results.any((r) => r != ConnectivityResult.none);
   }
 
-  // ---------- المزامنة التدريجية (Delta) ----------
   Future<SyncResult> syncDelta({bool force = false}) async {
-    if (_isSyncing) {
-      return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
-    }
-    if (!await _hasInternet()) {
-      return const SyncResult(success: false, error: 'لا يوجد إنترنت');
-    }
+    if (_isSyncing) return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
+    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
     if (!force && _lastSyncTime != null) {
       final diff = DateTime.now().difference(_lastSyncTime!);
       if (diff < _minSyncInterval) {
@@ -85,12 +66,10 @@ class SyncService {
         return const SyncResult(success: true);
       }
     }
-
     _isSyncing = true;
     int inserted = 0, updated = 0;
     try {
       final serverProducts = await _api.fetchProducts(page: 1, pageSize: _batchSize);
-
       for (final sp in serverProducts) {
         final local = _productBox.get(sp.sku);
         if (local == null) {
@@ -111,41 +90,8 @@ class SyncService {
     }
   }
 
-  // ---------- المزامنة الكاملة (Full) ----------
-  Future<SyncResult> fullSync() async {
-    if (_isSyncing) return const SyncResult(success: false, error: 'مزامنة قيد التنفيذ');
-    if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
+  Future<SyncResult> fullSync() => syncDelta(force: true);
 
-    _isSyncing = true;
-    int inserted = 0, updated = 0, page = 1;
-    try {
-      while (true) {
-        final products = await _api.fetchProducts(page: page, pageSize: _batchSize);
-        if (products.isEmpty) break;
-        for (final sp in products) {
-          final local = _productBox.get(sp.sku);
-          if (local == null) {
-            await _productBox.put(sp.sku, sp);
-            inserted++;
-          } else if (local.updatedAt.isBefore(sp.updatedAt)) {
-            await _productBox.put(sp.sku, sp);
-            updated++;
-          }
-        }
-        page++;
-        debugPrint('Full sync page $page done');
-      }
-      await _saveLastSyncTime(DateTime.now());
-      return SyncResult(success: true, inserted: inserted, updated: updated);
-    } catch (e) {
-      debugPrint('Full sync error: $e');
-      return SyncResult(success: false, error: e.toString());
-    } finally {
-      _isSyncing = false;
-    }
-  }
-
-  // ---------- رفع المنتجات المعلقة (تمت إزالة الجزء الذي ينشئ Product يدوياً) ----------
   Future<SyncResult> uploadPendingProducts() async {
     if (!await _hasInternet()) return const SyncResult(success: false, error: 'لا يوجد إنترنت');
     final pending = _productBox.values.where((p) => p.syncStatus == 'pending').toList();
@@ -160,19 +106,13 @@ class SyncService {
           await _productBox.put(p.sku, p);
           uploaded++;
         }
-      } catch (e) {
-        debugPrint('Failed to upload batch: $e');
-      }
+      } catch (e) { debugPrint('Failed to upload batch: $e'); }
       await Future.delayed(const Duration(milliseconds: 300));
     }
     return SyncResult(success: true, inserted: uploaded, updated: 0);
   }
 
-  // ---------- حالة المزامنة ----------
   bool get isSyncing => _isSyncing;
   DateTime? get lastSyncTime => _lastSyncTime;
-
-  void dispose() {
-    _connectivitySubscription?.cancel();
-  }
+  void dispose() { _connectivitySubscription?.cancel(); }
 }
