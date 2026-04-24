@@ -56,67 +56,64 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
     final lastSync = ref.watch(productProvider.select((s) => s.lastSyncTime));
     final currentQuery = ref.watch(productProvider.select((s) => s.currentQuery));
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('كتالوج المنتجات'),
-          actions: [
-            IconButton(
-              icon: RotationTransition(turns: isSyncing ? _rotationController : const AlwaysStoppedAnimation(0), child: const Icon(Icons.sync)),
-              onPressed: isSyncing ? null : _handleSync,
-            ),
-            IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: () => context.push('/cart')),
-          ],
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'ابحث عن منتج...', prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _onSearchChanged(''); }) : null,
-                ),
-                onChanged: _onSearchChanged,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('كتالوج المنتجات'),
+        actions: [
+          IconButton(
+            icon: RotationTransition(turns: isSyncing ? _rotationController : const AlwaysStoppedAnimation(0), child: const Icon(Icons.sync)),
+            onPressed: isSyncing ? null : _handleSync,
+          ),
+          IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: () => context.push('/cart')),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'ابحث عن منتج...', prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: _searchController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _onSearchChanged(''); }) : null,
               ),
+              onChanged: _onSearchChanged,
             ),
-            if (lastSync != null) Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('${items.length} صنف | آخر مزامنة: ${DateFormat('HH:mm').format(lastSync!)}'),
-            ),
-            Expanded(
-              child: isLoading && items.isEmpty
-                  ? GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
-                      itemCount: 6,
-                      itemBuilder: (_, __) => Shimmer.fromColors(
-                        baseColor: Colors.grey.shade300,
-                        highlightColor: Colors.grey.shade100,
-                        child: Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                      ),
-                    )
-                  : items.isEmpty
-                      ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey), const SizedBox(height: 16), Text(currentQuery.isEmpty ? 'لا توجد منتجات' : 'لا توجد نتائج'), if (currentQuery.isNotEmpty) TextButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, child: const Text('مسح البحث'))]))
-                      : RefreshIndicator(
-                          onRefresh: () async => ref.read(productProvider.notifier).loadMore(reset: true),
-                          child: GridView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.all(12),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
-                            itemCount: items.length + (ref.read(productProvider).hasMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == items.length) return const Center(child: CircularProgressIndicator());
-                              return ProductCard(product: items[index]);
-                            },
-                          ),
+          ),
+          if (lastSync != null) Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text('${items.length} صنف | آخر مزامنة: ${DateFormat('HH:mm').format(lastSync!)}'),
+          ),
+          Expanded(
+            child: isLoading && items.isEmpty
+                ? GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
+                    itemCount: 6,
+                    itemBuilder: (_, __) => Shimmer.fromColors(
+                      baseColor: Colors.grey.shade300,
+                      highlightColor: Colors.grey.shade100,
+                      child: Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                    ),
+                  )
+                : items.isEmpty
+                    ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey), const SizedBox(height: 16), Text(currentQuery.isEmpty ? 'لا توجد منتجات' : 'لا توجد نتائج'), if (currentQuery.isNotEmpty) TextButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, child: const Text('مسح البحث'))]))
+                    : RefreshIndicator(
+                        onRefresh: () async => ref.read(productProvider.notifier).loadMore(reset: true),
+                        child: GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
+                          itemCount: items.length + (ref.read(productProvider).hasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == items.length) return const Center(child: CircularProgressIndicator());
+                            return ProductCard(product: items[index]);
+                          },
                         ),
-            ),
-          ],
-        ),
+                      ),
+          ),
+        ],
       ),
     );
   }
