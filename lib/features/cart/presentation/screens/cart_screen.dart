@@ -44,7 +44,7 @@ class CartScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text('الإجمالي: ${cart.totalAmount.toStringAsFixed(2)} ريال', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text('الإجمالي: ${cart.total.toStringAsFixed(2)} ريال', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       ElevatedButton(onPressed: () => context.push('/invoice'), child: const Text('متابعة')),
                     ]),
                   ),

@@ -93,7 +93,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen>
                       padding: const EdgeInsets.all(12),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.72),
                       itemCount: 6,
-                      itemBuilder: (_, __) => Shimmer.fromColors(baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100, child: Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+                      itemBuilder: (_, __) => Shimmer.fromColors(
+                        baseColor: Colors.grey.shade300,
+                        highlightColor: Colors.grey.shade100,
+                        child: Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                      ),
                     )
                   : items.isEmpty
                       ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey), const SizedBox(height: 16), Text(currentQuery.isEmpty ? 'لا توجد منتجات' : 'لا توجد نتائج'), if (currentQuery.isNotEmpty) TextButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, child: const Text('مسح البحث'))]))

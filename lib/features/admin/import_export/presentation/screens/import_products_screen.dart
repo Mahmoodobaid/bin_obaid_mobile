@@ -262,7 +262,6 @@ class _ImportProductsScreenState extends ConsumerState<ImportProductsScreen>
 
   Future<void> _loadCsvData() async {
     final fileContent = await _selectedFile!.readAsString();
-    List<List<dynamic>> rows = csvConverter.convert(fileContent);
     if (rows.isEmpty) throw Exception('ملف CSV فارغ');
     if (_headerRowIndex >= rows.length) _headerRowIndex = 0;
     _excelColumns = rows[_headerRowIndex]
